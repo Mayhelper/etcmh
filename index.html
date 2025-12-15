@@ -202,33 +202,43 @@
 
         .tt-info {
             background: #f8f9fa;
-            padding: 20px;
+            padding: 15px;
             border-radius: 8px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             border-left: 4px solid #3498db;
         }
 
         .info-item {
             display: flex;
-            flex-direction: column;
-            padding: 10px;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
             background: white;
-            border-radius: 6px;
+            border-radius: 4px;
             border: 1px solid #eaeaea;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
 
         .info-label {
             font-size: 0.85em;
             color: #7f8c8d;
-            margin-bottom: 5px;
             font-weight: 500;
+            flex-shrink: 0;
+            margin-right: 10px;
         }
 
         .info-value {
             font-weight: 500;
             color: #2c3e50;
-            font-size: 1em;
+            font-size: 0.9em;
+            text-align: right;
+            word-break: break-word;
+        }
+
+        .filter-options-container {
+            margin-bottom: 20px;
+            padding: 0;
         }
 
         .sku-table-container {
@@ -405,13 +415,63 @@
             h1 {
                 font-size: 1.8em;
             }
+
+            .tt-info {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 6px 10px;
+                margin-bottom: 4px;
+            }
+
+            .info-label {
+                font-size: 0.8em;
+                margin-bottom: 2px;
+                margin-right: 0;
+            }
+
+            .info-value {
+                font-size: 0.85em;
+                text-align: left;
+            }
+
+            .filter-options-container {
+                margin-bottom: 15px;
+            }
+
+            .filter-options {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+
+            .filter-btn {
+                flex: 1;
+                min-width: 120px;
+                padding: 10px 15px;
+                font-size: 0.9em;
+            }
+
+            .results-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .results-count {
+                align-self: flex-end;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🔍 Анализатор MML отчетов</h1>
+            <h1>Факт прокупки MML</h1>
             <p class="subtitle">Фильтрация SKU по наличию заливки в ячейке</p>
             <div class="warning">
                 ⚠️ <strong>Важно:</strong> Фильтр по заливке может работать не со всеми файлами Excel, 
@@ -450,10 +510,6 @@
         <div id="resultsSection" class="results-section">
             <div class="results-header">
                 <h2 class="results-title">Результаты поиска</h2>
-                <div class="filter-options">
-                    <button class="filter-btn active" data-filter="mml">MML</button>
-                    <button class="filter-btn" data-filter="plus">SKU с +</button>
-                </div>
                 <div class="results-count" id="resultsCount">0 SKU</div>
             </div>
 
@@ -463,6 +519,13 @@
                 </div>
                 <div id="ttInfoContent">
                     <!-- Информация будет заполнена динамически -->
+                </div>
+            </div>
+
+            <div class="filter-options-container">
+                <div class="filter-options">
+                    <button class="filter-btn active" data-filter="mml">MML</button>
+                    <button class="filter-btn" data-filter="plus">SKU с +</button>
                 </div>
             </div>
 
@@ -701,7 +764,7 @@
 
         function displayTTInfo() {
             const ttInfoContent = document.getElementById('ttInfoContent');
-            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">';
+            let html = '';
             
             infoColumns.forEach(col => {
                 const index = findColumnIndex(col.search);
@@ -742,7 +805,6 @@
                 `;
             });
             
-            html += '</div>';
             ttInfoContent.innerHTML = html;
         }
 
