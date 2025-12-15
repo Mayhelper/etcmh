@@ -136,6 +136,7 @@
             font-size: 16px;
             transition: border-color 0.3s;
             min-width: 300px;
+            text-transform: uppercase;
         }
 
         .search-input:focus {
@@ -484,6 +485,45 @@
             .results-count {
                 align-self: flex-end;
             }
+
+            .sku-table-container {
+                max-height: calc(100vh - 400px);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .sku-table {
+                font-size: 0.85em;
+                min-width: 500px;
+            }
+
+            .sku-table th {
+                padding: 8px 6px;
+                font-size: 0.8em;
+            }
+
+            .sku-table td {
+                padding: 8px 6px;
+                font-size: 0.85em;
+            }
+
+            .sku-name {
+                font-size: 0.85em;
+                max-width: 200px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .sku-status {
+                font-size: 0.8em;
+                padding: 4px 8px;
+            }
+
+            .status-icon {
+                width: 8px;
+                height: 8px;
+            }
         }
     </style>
 </head>
@@ -695,7 +735,16 @@
 
         // Поиск по коду ТТ
         document.getElementById('searchBtn').addEventListener('click', searchByTT);
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        
+        // Преобразование ввода в верхний регистр
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function(e) {
+            const cursorPosition = this.selectionStart;
+            this.value = this.value.toUpperCase();
+            this.setSelectionRange(cursorPosition, cursorPosition);
+        });
+        
+        searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 searchByTT();
             }
