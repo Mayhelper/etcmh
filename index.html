@@ -368,6 +368,17 @@
             gap: 15px;
             margin-bottom: 20px;
             flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-options .results-count {
+            margin-left: auto;
+            margin-bottom: 0;
+        }
+
+        .filter-options .results-count {
+            margin-left: auto;
+            margin-bottom: 0;
         }
 
         .filter-btn {
@@ -447,6 +458,7 @@
                 display: flex;
                 gap: 10px;
                 flex-wrap: wrap;
+                width: 100%;
             }
 
             .filter-btn {
@@ -454,6 +466,13 @@
                 min-width: 120px;
                 padding: 10px 15px;
                 font-size: 0.9em;
+            }
+
+            .filter-options .results-count {
+                margin-left: 0;
+                margin-top: 10px;
+                width: 100%;
+                text-align: center;
             }
 
             .results-header {
@@ -472,23 +491,7 @@
     <div class="container">
         <header>
             <h1>Факт прокупки MML</h1>
-            <p class="subtitle">Фильтрация SKU по наличию заливки в ячейке</p>
-            <div class="warning">
-                ⚠️ <strong>Важно:</strong> Фильтр по заливке может работать не со всеми файлами Excel, 
-                так как браузерные библиотеки не всегда сохраняют информацию о форматировании.
-                Если заливка не определяется, используйте фильтр по значению "+".
-            </div>
         </header>
-
-        <div class="upload-section">
-            <div class="file-input-wrapper">
-                <label class="file-label">
-                    📁 Выберите файл
-                    <input type="file" id="fileInput" accept=".xlsx,.xls">
-                </label>
-                <div class="file-name" id="fileName">Файл не выбран</div>
-            </div>
-        </div>
 
         <div class="search-section">
             <div class="search-input-wrapper">
@@ -510,7 +513,6 @@
         <div id="resultsSection" class="results-section">
             <div class="results-header">
                 <h2 class="results-title">Результаты поиска</h2>
-                <div class="results-count" id="resultsCount">0 SKU</div>
             </div>
 
             <div class="tt-info">
@@ -524,8 +526,9 @@
 
             <div class="filter-options-container">
                 <div class="filter-options">
-                    <button class="filter-btn active" data-filter="mml">MML</button>
-                    <button class="filter-btn" data-filter="plus">SKU с +</button>
+                    <button class="filter-btn active" data-filter="mml">План MML</button>
+                    <button class="filter-btn" data-filter="plus">Прокупленные MML</button>
+                    <div class="results-count" id="resultsCount">0 SKU</div>
                 </div>
             </div>
 
@@ -552,7 +555,7 @@
         </div>
 
         <footer>
-            <p>Приложение для анализа отчетов MML | Фильтрация по заливке ячеек (любой цвет)</p>
+            <p>(c) Разработано отделом ОРПП в 2025г. Все права принадлежат компании МАЙ.</p>
         </footer>
     </div>
 
@@ -587,88 +590,89 @@
             { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
         ];
 
-        // Обработка выбора файла
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        // URL файла данных
+        const DATA_FILE_URL = 'https://raw.githubusercontent.com/Mayhelper/mayhelper/main/datamml.xlsx';
 
-            document.getElementById('fileName').textContent = file.name;
-            document.getElementById('searchBtn').disabled = false;
-            document.getElementById('errorMessage').style.display = 'none';
-
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                try {
-                    document.getElementById('loading').style.display = 'block';
-                    
-                    const data = new Uint8Array(e.target.result);
-                    
-                    // Пытаемся прочитать файл с опцией, которая может сохранить стили
-                    workbook = XLSX.read(data, { 
-                        type: 'array',
-                        cellStyles: true,  // Попытка сохранить стили
-                        cellHTML: true     // Попытка сохранить HTML-форматирование
-                    });
-                    
-                    // Получаем данные с первого листа
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    worksheet = firstSheet;
-                    
-                    // Получаем данные в виде массива массивов
-                    const sheetData = XLSX.utils.sheet_to_json(firstSheet, { 
-                        header: 1,
-                        raw: false,
-                        defval: ''
-                    });
-                    
-                    // Находим строку с заголовками (строка 4, индекс 3)
-                    if (sheetData.length >= 4) {
-                        headers = sheetData[3]; // Строка 4 (индекс 3)
-                        
-                        // Находим индекс столбца "Включать в расчёт SDO"
-                        const sdoIndex = findColumnIndex(['Включать в расчёт SDO']);
-                        
-                        if (sdoIndex !== -1) {
-                            skuStartIndex = sdoIndex + 1;
-                            
-                            // Собираем строки с данными
-                            dataRows = [];
-                            for (let i = 4; i < sheetData.length; i++) {
-                                const row = sheetData[i];
-                                if (row && row.length > 0) {
-                                    dataRows.push(row);
-                                }
-                            }
-                            
-                            console.log('Файл успешно загружен. Найдено строк:', dataRows.length);
-                            console.log('SKU начинаются с колонки:', skuStartIndex);
-                            
-                            // Показываем информацию о файле
-                            showFileInfo();
-                            
-                        } else {
-                            showError('Не удалось найти колонку "Включать в расчёт SDO"');
-                        }
-                    } else {
-                        showError('Файл не содержит достаточно данных');
-                    }
-                    
-                    document.getElementById('loading').style.display = 'none';
-                    
-                } catch (error) {
-                    console.error('Ошибка при чтении файла:', error);
-                    showError('Ошибка при чтении файла: ' + error.message);
-                    document.getElementById('loading').style.display = 'none';
+        // Функция загрузки файла с сервера
+        async function loadFileFromServer() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('errorMessage').style.display = 'none';
+                
+                // Загружаем файл с сервера
+                const response = await fetch(DATA_FILE_URL);
+                if (!response.ok) {
+                    throw new Error(`Ошибка загрузки файла: ${response.status} ${response.statusText}`);
                 }
-            };
-            
-            reader.onerror = function() {
-                showError('Ошибка при чтении файла');
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                
+                // Пытаемся прочитать файл с опцией, которая может сохранить стили
+                workbook = XLSX.read(data, { 
+                    type: 'array',
+                    cellStyles: true,  // Попытка сохранить стили
+                    cellHTML: true     // Попытка сохранить HTML-форматирование
+                });
+                
+                // Получаем данные с первого листа
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                worksheet = firstSheet;
+                
+                // Получаем данные в виде массива массивов
+                const sheetData = XLSX.utils.sheet_to_json(firstSheet, { 
+                    header: 1,
+                    raw: false,
+                    defval: ''
+                });
+                
+                // Находим строку с заголовками (строка 4, индекс 3)
+                if (sheetData.length >= 4) {
+                    headers = sheetData[3]; // Строка 4 (индекс 3)
+                    
+                    // Находим индекс столбца "Включать в расчёт SDO"
+                    const sdoIndex = findColumnIndex(['Включать в расчёт SDO']);
+                    
+                    if (sdoIndex !== -1) {
+                        skuStartIndex = sdoIndex + 1;
+                        
+                        // Собираем строки с данными
+                        dataRows = [];
+                        for (let i = 4; i < sheetData.length; i++) {
+                            const row = sheetData[i];
+                            if (row && row.length > 0) {
+                                dataRows.push(row);
+                            }
+                        }
+                        
+                        console.log('Файл успешно загружен. Найдено строк:', dataRows.length);
+                        console.log('SKU начинаются с колонки:', skuStartIndex);
+                        
+                        // Показываем информацию о файле
+                        showFileInfo();
+                        
+                        // Активируем кнопку поиска
+                        document.getElementById('searchBtn').disabled = false;
+                        
+                    } else {
+                        showError('Не удалось найти колонку "Включать в расчёт SDO"');
+                    }
+                } else {
+                    showError('Файл не содержит достаточно данных');
+                }
+                
                 document.getElementById('loading').style.display = 'none';
-            };
-            
-            reader.readAsArrayBuffer(file);
+                
+            } catch (error) {
+                console.error('Ошибка при загрузке файла:', error);
+                showError('Ошибка при загрузке файла: ' + error.message);
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Загружаем файл при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFileFromServer();
         });
 
         // Функция для поиска индекса колонки
@@ -705,7 +709,7 @@
             }
 
             if (!workbook) {
-                showError('Сначала загрузите файл');
+                showError('Файл еще загружается, подождите...');
                 return;
             }
 
@@ -900,15 +904,15 @@
             switch(filterType) {
                 case 'mml':
                     filteredData = allSkuData.filter(sku => sku.hasFill);
-                    filterText = 'MML';
+                    filterText = 'План MML';
                     break;
                 case 'plus':
                     filteredData = allSkuData.filter(sku => sku.hasPlus);
-                    filterText = 'SKU с +';
+                    filterText = 'Прокупленные MML';
                     break;
                 default:
                     filteredData = allSkuData.filter(sku => sku.hasFill);
-                    filterText = 'MML';
+                    filterText = 'План MML';
                     break;
             }
             
@@ -919,9 +923,17 @@
                 let fillStatus = 'Нет заливки';
                 let fillStatusClass = 'status-no-fill';
                 
+                // Определяем, пустое ли значение (будет показан красный минус)
+                const isEmptyValue = !sku.value || sku.value.trim() === '';
+                
                 if (sku.hasFill) {
                     fillStatus = 'Плановый MML';
-                    fillStatusClass = 'status-green-fill';
+                    // Если значение пустое (будет показан красный минус), делаем статус красным
+                    if (isEmptyValue && !sku.hasPlus) {
+                        fillStatusClass = 'status-no-fill';
+                    } else {
+                        fillStatusClass = 'status-green-fill';
+                    }
                 }
                 
                 let valueText = sku.value || '';
