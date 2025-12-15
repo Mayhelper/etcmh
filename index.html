@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализатор MML отчетов - Фильтр по заливке</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            padding: 30px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eaeaea;
+        }
+
+        h1 {
+            color: #2c3e50;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #ffc107;
+            font-size: 0.95em;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 2px dashed #3498db;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #2980b9;
+            background: #f0f7ff;
+        }
+
+        .file-input-wrapper {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .file-label {
+            background: #3498db;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+
+        .file-label:hover {
+            background: #2980b9;
+        }
+
+        .file-name {
+            color: #2c3e50;
+            font-style: italic;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            flex-grow: 1;
+            min-width: 200px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .search-section {
+            background: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #eaeaea;
+        }
+
+        .search-input-wrapper {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex-grow: 1;
+            padding: 14px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            min-width: 300px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+
+        .search-btn {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s;
+        }
+
+        .search-btn:hover {
+            background: #27ae60;
+        }
+
+        .search-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .results-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eaeaea;
+        }
+
+        .results-title {
+            font-size: 1.5em;
+            color: #2c3e50;
+        }
+
+        .results-count {
+            background: #3498db;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .tt-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3498db;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #eaeaea;
+            margin-bottom: 10px;
+        }
+
+        .info-label {
+            font-size: 0.85em;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-weight: 500;
+            color: #2c3e50;
+            font-size: 1em;
+        }
+
+        .sku-table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #eaeaea;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .sku-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        .sku-table th {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+
+        .sku-table tr {
+            border-bottom: 1px solid #eaeaea;
+            transition: background 0.2s;
+        }
+
+        .sku-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .sku-table td {
+            padding: 12px 15px;
+        }
+
+        .sku-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .sku-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .status-green-fill {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-no-fill {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-icon {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .status-green-fill .status-icon {
+            background: #28a745;
+        }
+
+        .status-no-fill .status-icon {
+            background: #dc3545;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .no-results-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .error-message {
+            background: #ffeaea;
+            color: #e74c3c;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #e74c3c;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #3498db;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .filter-options {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 20px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9em;
+        }
+
+        .filter-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eaeaea;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .file-input-wrapper,
+            .search-input-wrapper {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .search-input,
+            .file-name {
+                min-width: unset;
+                width: 100%;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Анализатор MML отчетов</h1>
+            <p class="subtitle">Фильтрация SKU по наличию заливки в ячейке</p>
+            <div class="warning">
+                ⚠️ <strong>Важно:</strong> Фильтр по заливке может работать не со всеми файлами Excel, 
+                так как браузерные библиотеки не всегда сохраняют информацию о форматировании.
+                Если заливка не определяется, используйте фильтр по значению "+".
+            </div>
+        </header>
+
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <label class="file-label">
+                    📁 Выберите файл
+                    <input type="file" id="fileInput" accept=".xlsx,.xls">
+                </label>
+                <div class="file-name" id="fileName">Файл не выбран</div>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <div class="search-input-wrapper">
+                <input type="text" 
+                       id="searchInput" 
+                       class="search-input" 
+                       placeholder="Введите код ТТ (например, ДМП-1003991)">
+                <button id="searchBtn" class="search-btn" disabled>
+                    🔍 Найти
+                </button>
+            </div>
+            <div id="errorMessage" class="error-message"></div>
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <p>Анализирую заливку ячеек...</p>
+            </div>
+        </div>
+
+        <div id="resultsSection" class="results-section">
+            <div class="results-header">
+                <h2 class="results-title">Результаты поиска</h2>
+                <div class="filter-options">
+                    <button class="filter-btn active" data-filter="mml">MML</button>
+                    <button class="filter-btn" data-filter="plus">SKU с +</button>
+                </div>
+                <div class="results-count" id="resultsCount">0 SKU</div>
+            </div>
+
+            <div class="tt-info">
+                <div style="margin-bottom: 10px;">
+                    <strong style="font-size: 1.1em;">Информация о торговой точке:</strong>
+                </div>
+                <div id="ttInfoContent">
+                    <!-- Информация будет заполнена динамически -->
+                </div>
+            </div>
+
+            <div class="sku-table-container">
+                <table class="sku-table" id="skuTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 70%;">Название SKU</th>
+                            <th style="width: 15%;">Плановый MML</th>
+                            <th style="width: 15%;">Прокупка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="skuTableBody">
+                        <!-- Данные будут заполнены динамически -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="noResults" class="no-results" style="display: none;">
+            <div class="no-results-icon">🔍</div>
+            <p>Торговая точка с таким кодом не найдена</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Проверьте правильность введенного кода ТТ</p>
+        </div>
+
+        <footer>
+            <p>Приложение для анализа отчетов MML | Фильтрация по заливке ячеек (любой цвет)</p>
+        </footer>
+    </div>
+
+    <!-- Библиотеки для работы с Excel -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- Дополнительная библиотека для работы с цветами Excel -->
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <script>
+        let workbook = null;
+        let worksheet = null;
+        let headers = [];
+        let dataRows = [];
+        let skuStartIndex = null;
+        let currentFilter = 'mml';
+        let currentRowData = null;
+        let allSkuData = [];
+
+        // Колонки для отображения информации
+        const infoColumns = [
+            { key: 'territoryCode', display: 'Код территории', search: ['Код территории'] },
+            { key: 'tp', display: 'ТП', search: ['ТП'] },
+            { key: 'ttCode', display: 'Код ТТ', search: ['Код ТТ'] },
+            { key: 'ttName', display: 'Название ТТ', search: ['Название ТТ'] },
+            { key: 'address', display: 'Адрес', search: ['Адрес'] },
+            { key: 'ttType', display: 'Тип ТТ', search: ['Тип ТТ'] },
+            { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
+            { key: 'planTea', display: 'План MML Чай', search: ['План MML Чай', 'План  MML Чай'] },
+            { key: 'factTeaQty', display: 'Факт MML Чай (кол-во)', search: ['Факт MML Чай (кол-во)', 'Факт MML Чай <br>(кол-во)', 'Факт MML Чай<br>(кол-во)', 'Факт MML Чай', 'кол-во'] },
+            { key: 'factTeaPercent', display: 'Факт MML Чай%', search: ['Факт MML Чай%', 'Факт MML Чай %', 'MML Чай%'] },
+            { key: 'completion', display: 'Выполнение MML ЧАЙ', search: ['Выполнение MML ЧАЙ', 'Выполнение<br>MML ЧАЙ', 'Выполнение<br/>MML ЧАЙ', 'Выполнение MML'] },
+            { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
+        ];
+
+        // Обработка выбора файла
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('searchBtn').disabled = false;
+            document.getElementById('errorMessage').style.display = 'none';
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    document.getElementById('loading').style.display = 'block';
+                    
+                    const data = new Uint8Array(e.target.result);
+                    
+                    // Пытаемся прочитать файл с опцией, которая может сохранить стили
+                    workbook = XLSX.read(data, { 
+                        type: 'array',
+                        cellStyles: true,  // Попытка сохранить стили
+                        cellHTML: true     // Попытка сохранить HTML-форматирование
+                    });
+                    
+                    // Получаем данные с первого листа
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    worksheet = firstSheet;
+                    
+                    // Получаем данные в виде массива массивов
+                    const sheetData = XLSX.utils.sheet_to_json(firstSheet, { 
+                        header: 1,
+                        raw: false,
+                        defval: ''
+                    });
+                    
+                    // Находим строку с заголовками (строка 4, индекс 3)
+                    if (sheetData.length >= 4) {
+                        headers = sheetData[3]; // Строка 4 (индекс 3)
+                        
+                        // Находим индекс столбца "Включать в расчёт SDO"
+                        const sdoIndex = findColumnIndex(['Включать в расчёт SDO']);
+                        
+                        if (sdoIndex !== -1) {
+                            skuStartIndex = sdoIndex + 1;
+                            
+                            // Собираем строки с данными
+                            dataRows = [];
+                            for (let i = 4; i < sheetData.length; i++) {
+                                const row = sheetData[i];
+                                if (row && row.length > 0) {
+                                    dataRows.push(row);
+                                }
+                            }
+                            
+                            console.log('Файл успешно загружен. Найдено строк:', dataRows.length);
+                            console.log('SKU начинаются с колонки:', skuStartIndex);
+                            
+                            // Показываем информацию о файле
+                            showFileInfo();
+                            
+                        } else {
+                            showError('Не удалось найти колонку "Включать в расчёт SDO"');
+                        }
+                    } else {
+                        showError('Файл не содержит достаточно данных');
+                    }
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    
+                } catch (error) {
+                    console.error('Ошибка при чтении файла:', error);
+                    showError('Ошибка при чтении файла: ' + error.message);
+                    document.getElementById('loading').style.display = 'none';
+                }
+            };
+            
+            reader.onerror = function() {
+                showError('Ошибка при чтении файла');
+                document.getElementById('loading').style.display = 'none';
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+
+        // Функция для поиска индекса колонки
+        function findColumnIndex(searchTerms) {
+            for (let i = 0; i < headers.length; i++) {
+                let header = headers[i] ? headers[i].toString().trim() : '';
+                // Убираем HTML теги и лишние пробелы для более точного поиска
+                header = header.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim();
+                
+                for (const term of searchTerms) {
+                    // Также убираем HTML теги из искомого термина
+                    const cleanTerm = term.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim();
+                    if (header.includes(cleanTerm) || cleanTerm.includes(header)) {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        // Поиск по коду ТТ
+        document.getElementById('searchBtn').addEventListener('click', searchByTT);
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchByTT();
+            }
+        });
+
+        function searchByTT() {
+            const searchCode = document.getElementById('searchInput').value.trim();
+            if (!searchCode) {
+                showError('Введите код ТТ для поиска');
+                return;
+            }
+
+            if (!workbook) {
+                showError('Сначала загрузите файл');
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+
+            // Находим индекс колонки "Код ТТ"
+            const ttCodeIndex = findColumnIndex(['Код ТТ']);
+            if (ttCodeIndex === -1) {
+                showError('Не найдена колонка "Код ТТ" в файле');
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+
+            // Ищем строку с нужным кодом ТТ
+            let foundRowIndex = -1;
+            currentRowData = null;
+            
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
+                if (row[ttCodeIndex] && row[ttCodeIndex].toString().trim() === searchCode) {
+                    foundRowIndex = i;
+                    currentRowData = row;
+                    break;
+                }
+            }
+
+            if (foundRowIndex === -1 || !currentRowData) {
+                document.getElementById('resultsSection').style.display = 'none';
+                document.getElementById('noResults').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+
+            // Отображаем результаты
+            setTimeout(() => {
+                displayResults(foundRowIndex);
+                document.getElementById('loading').style.display = 'none';
+            }, 100);
+        }
+
+        function displayResults(rowIndex) {
+            document.getElementById('noResults').style.display = 'none';
+            
+            // Заполняем информацию о торговой точке
+            displayTTInfo();
+            
+            // Собираем данные SKU
+            collectSkuData(rowIndex);
+            
+            // Применяем текущий фильтр
+            applyFilter(currentFilter);
+            
+            // Показываем секцию с результатами
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function displayTTInfo() {
+            const ttInfoContent = document.getElementById('ttInfoContent');
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">';
+            
+            infoColumns.forEach(col => {
+                const index = findColumnIndex(col.search);
+                let value = '—';
+                if (index !== -1 && currentRowData && currentRowData[index] !== undefined) {
+                    value = currentRowData[index].toString().trim();
+                    
+                    // Специальная обработка для процентов
+                    if (col.key === 'factTeaPercent') {
+                        // Если значение уже содержит %, оставляем как есть, иначе добавляем %
+                        if (value && value !== '—' && !value.includes('%')) {
+                            // Пытаемся преобразовать в число и добавить %
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                                value = numValue + '%';
+                            } else {
+                                value = value + '%';
+                            }
+                        }
+                    }
+                }
+                
+                // Отладочная информация для проблемных колонок
+                if (col.key === 'ttChannel' || col.key === 'factTeaQty' || col.key === 'completion' || col.key === 'factTeaPercent') {
+                    console.log(`Колонка "${col.display}":`, {
+                        searchTerms: col.search,
+                        foundIndex: index,
+                        value: value,
+                        headers: headers.slice(0, 30).map((h, i) => `${i}: ${h}`)
+                    });
+                }
+                
+                html += `
+                    <div class="info-item">
+                        <span class="info-label">${col.display}:</span>
+                        <span class="info-value">${value}</span>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            ttInfoContent.innerHTML = html;
+        }
+
+        function collectSkuData(rowIndex) {
+            allSkuData = [];
+            
+            if (skuStartIndex === null || !currentRowData) return;
+            
+            // Получаем диапазон ячеек из worksheet
+            const range = XLSX.utils.decode_range(worksheet['!ref']);
+            
+            // rowIndex - это индекс в массиве dataRows (начинается с 0)
+            // dataRows начинается с 5-й строки Excel (индекс 4 в sheetData, но строка 5 в Excel)
+            // Поэтому для encode_cell (который использует 0-based индексы) нужно: rowIndex + 4
+            const excelRowForEncode = rowIndex + 4;
+            
+            for (let col = skuStartIndex; col < headers.length; col++) {
+                const skuName = headers[col] ? headers[col].toString().trim() : '';
+                if (!skuName) continue;
+                
+                const cellValue = currentRowData[col] ? currentRowData[col].toString().trim() : '';
+                const hasPlus = cellValue.includes('+');
+                
+                // Проверяем наличие ЛЮБОЙ заливки (независимо от цвета)
+                let hasFill = false;
+                
+                // Получаем адрес ячейки в формате Excel (например, "A5")
+                // encode_cell использует 0-based индексы: r=0 это строка 1 в Excel
+                const cellAddress = XLSX.utils.encode_cell({r: excelRowForEncode, c: col});
+                const cell = worksheet[cellAddress];
+                
+                // Проверяем наличие заливки в ячейке - максимально простая проверка
+                if (cell && cell.s) {
+                    const style = cell.s;
+                    
+                    // Если есть объект fill (даже пустой), считаем что заливка есть
+                    // В Excel если ячейка залита, объект fill всегда присутствует в стилях
+                    if (style.fill) {
+                        hasFill = true;
+                    }
+                    
+                    // Альтернативная проверка через другие свойства стиля
+                    if (!hasFill && (style.bg || style.bgColor || style.backgroundColor)) {
+                        hasFill = true;
+                    }
+                }
+                
+                // Отладочная информация - выводим для всех ячеек со стилями
+                if (cell && cell.s) {
+                    const hasFillStyle = !!cell.s.fill;
+                    if (hasFillStyle || hasFill) {
+                        console.log(`Ячейка ${cellAddress} (${skuName}):`, {
+                            hasFill: hasFill,
+                            hasStyle: true,
+                            hasFillStyle: hasFillStyle,
+                            fill: cell.s.fill,
+                            fillKeys: cell.s.fill ? Object.keys(cell.s.fill) : [],
+                            fillType: cell.s.fill ? typeof cell.s.fill : 'none',
+                            fillString: cell.s.fill ? JSON.stringify(cell.s.fill).substring(0, 200) : 'none',
+                            value: cellValue,
+                            hasPlus: hasPlus
+                        });
+                    }
+                }
+                
+                allSkuData.push({
+                    name: skuName,
+                    value: cellValue,
+                    hasPlus: hasPlus,
+                    hasFill: hasFill,
+                    colIndex: col
+                });
+            }
+        }
+
+        function applyFilter(filterType) {
+            currentFilter = filterType;
+            const skuTableBody = document.getElementById('skuTableBody');
+            skuTableBody.innerHTML = '';
+            
+            // Обновляем активную кнопку фильтра
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.filter === filterType) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Фильтруем данные
+            let filteredData = allSkuData;
+            let filterText = '';
+            
+            switch(filterType) {
+                case 'mml':
+                    filteredData = allSkuData.filter(sku => sku.hasFill);
+                    filterText = 'MML';
+                    break;
+                case 'plus':
+                    filteredData = allSkuData.filter(sku => sku.hasPlus);
+                    filterText = 'SKU с +';
+                    break;
+                default:
+                    filteredData = allSkuData.filter(sku => sku.hasFill);
+                    filterText = 'MML';
+                    break;
+            }
+            
+            // Отображаем отфильтрованные данные
+            filteredData.forEach(sku => {
+                const row = document.createElement('tr');
+                
+                let fillStatus = 'Нет заливки';
+                let fillStatusClass = 'status-no-fill';
+                
+                if (sku.hasFill) {
+                    fillStatus = 'Плановый MML';
+                    fillStatusClass = 'status-green-fill';
+                }
+                
+                let valueText = sku.value || '';
+                if (sku.hasPlus) {
+                    valueText = '<span style="color: #28a745; font-weight: bold; font-size: 1.2em;">+</span>';
+                } else if (!valueText || valueText.trim() === '') {
+                    // Если значение пустое, показываем красный минус
+                    valueText = '<span style="color: #dc3545; font-weight: bold; font-size: 1.2em;">−</span>';
+                }
+                
+                row.innerHTML = `
+                    <td class="sku-name">${sku.name}</td>
+                    <td>
+                        <span class="sku-status ${fillStatusClass}">
+                            <span class="status-icon"></span>
+                            ${fillStatus}
+                        </span>
+                    </td>
+                    <td>${valueText}</td>
+                `;
+                skuTableBody.appendChild(row);
+            });
+            
+            // Обновляем счетчик
+            document.getElementById('resultsCount').textContent = `${filteredData.length} SKU`;
+        }
+
+        // Обработчики для кнопок фильтра
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filterType = this.dataset.filter;
+                applyFilter(filterType);
+            });
+        });
+
+        function showFileInfo() {
+            console.log('Worksheet keys:', Object.keys(worksheet).slice(0, 10));
+            
+            // Проверяем, есть ли у некоторых ячеек стили
+            for (let key in worksheet) {
+                if (key.startsWith('!')) continue;
+                const cell = worksheet[key];
+                if (cell && cell.s) {
+                    console.log('Ячейка с стилями:', key, cell);
+                    break;
+                }
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
