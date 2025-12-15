@@ -156,6 +156,7 @@
             font-weight: 500;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
             transition: background 0.3s;
         }
@@ -542,7 +543,7 @@
                        class="search-input" 
                        placeholder="Введите код ТТ (например, ДМП-1003991)">
                 <button id="searchBtn" class="search-btn" disabled>
-                    🔍 Найти
+                    Найти ТТ
                 </button>
             </div>
             <div id="errorMessage" class="error-message"></div>
@@ -615,6 +616,17 @@
         let currentFilter = 'mml';
         let currentRowData = null;
         let allSkuData = [];
+
+        // Функция для преобразования текста в Title Case (каждое слово с заглавной буквы)
+        function toTitleCase(str) {
+            if (!str) return '';
+            return str.toLowerCase().split(' ').map(word => {
+                // Пропускаем пустые слова
+                if (!word) return word;
+                // Первая буква заглавная, остальные строчные
+                return word.charAt(0).toUpperCase() + word.slice(1);
+            }).join(' ');
+        }
 
         // Колонки для отображения информации
         const infoColumns = [
@@ -829,6 +841,10 @@
                     
                     // Специальная обработка для процентов
                     if (col.key === 'factTeaPercent') {
+                        // Убираем знак $ в начале значения, если есть
+                        if (value && value !== '—' && value.startsWith('$')) {
+                            value = value.substring(1).trim();
+                        }
                         // Если значение уже содержит %, оставляем как есть, иначе добавляем %
                         if (value && value !== '—' && !value.includes('%')) {
                             // Пытаемся преобразовать в число и добавить %
@@ -995,8 +1011,11 @@
                     valueText = '<span style="color: #dc3545; font-weight: bold; font-size: 1.2em;">−</span>';
                 }
                 
+                // Преобразуем название SKU в Title Case
+                const formattedSkuName = toTitleCase(sku.name);
+                
                 row.innerHTML = `
-                    <td class="sku-name">${sku.name}</td>
+                    <td class="sku-name">${formattedSkuName}</td>
                     <td>
                         <span class="sku-status ${fillStatusClass}">
                             <span class="status-icon"></span>
