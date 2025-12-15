@@ -487,14 +487,14 @@
             }
 
             .sku-table-container {
-                max-height: calc(100vh - 400px);
-                overflow-y: auto;
+                overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
             }
 
             .sku-table {
                 font-size: 0.85em;
-                min-width: 500px;
+                width: 100%;
+                min-width: unset;
             }
 
             .sku-table th {
@@ -505,14 +505,16 @@
             .sku-table td {
                 padding: 8px 6px;
                 font-size: 0.85em;
+                word-wrap: break-word;
+                word-break: break-word;
             }
 
             .sku-name {
                 font-size: 0.85em;
-                max-width: 200px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
+                white-space: normal;
+                word-wrap: break-word;
+                word-break: break-word;
+                line-height: 1.4;
             }
 
             .sku-status {
@@ -969,7 +971,7 @@
             filteredData.forEach(sku => {
                 const row = document.createElement('tr');
                 
-                let fillStatus = 'Нет заливки';
+                let fillStatus = 'Не плановый MML';
                 let fillStatusClass = 'status-no-fill';
                 
                 // Определяем, пустое ли значение (будет показан красный минус)
