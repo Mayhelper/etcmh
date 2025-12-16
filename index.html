@@ -424,12 +424,11 @@
             padding: 6px 12px;
             border-radius: 20px;
             font-size: 0.9em;
-            font-weight: 500;
+            font-weight: bold;
         }
         
         .sku-status .status-icon {
-            flex-shrink: 0;
-            order: -1;
+            display: none;
         }
 
         .status-green-fill {
@@ -620,7 +619,7 @@
         /* Кнопка "Вверх" */
         .scroll-to-top {
             position: fixed;
-            bottom: 20px;
+            bottom: 40px;
             right: 20px;
             width: 50px;
             height: 50px;
@@ -635,11 +634,11 @@
             justify-content: center;
             z-index: 1000;
             transition: all 0.3s ease;
-            opacity: 0.7;
+            opacity: 0.4;
         }
 
         .scroll-to-top:hover {
-            opacity: 1;
+            opacity: 0.7;
             border-color: #3498db;
             background: rgba(52, 152, 219, 0.1);
         }
@@ -652,7 +651,7 @@
             .scroll-to-top {
                 width: 45px;
                 height: 45px;
-                bottom: 15px;
+                bottom: 30px;
                 right: 15px;
                 font-size: 20px;
             }
@@ -873,9 +872,7 @@
             }
             
             .sku-status .status-icon {
-                order: -1;
-                margin-right: 4px;
-                flex-shrink: 0;
+                display: none;
             }
             
             .results-header {
