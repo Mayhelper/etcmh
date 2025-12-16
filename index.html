@@ -516,6 +516,51 @@
             border-color: #3498db;
         }
 
+        /* Вкладки для переключения ЧАЙ/КОФЕ */
+        .category-tabs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .category-tab {
+            padding: 12px 40px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .category-tab.active[data-category="tea"] {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .category-tab.active[data-category="coffee"] {
+            background: #2ecc71;
+            color: white;
+            border-color: #2ecc71;
+        }
+
+        .category-tab[data-category="tea"]:hover:not(.active) {
+            background: #e8f4f8;
+            border-color: #3498db;
+        }
+
+        .category-tab[data-category="coffee"]:hover:not(.active) {
+            background: #e8f8f0;
+            border-color: #2ecc71;
+        }
+
         footer {
             text-align: center;
             margin-top: 40px;
@@ -644,6 +689,17 @@
                 width: 8px;
                 height: 8px;
             }
+
+            .category-tabs {
+                padding: 10px;
+                gap: 8px;
+            }
+            
+            .category-tab {
+                flex: 1;
+                padding: 10px 20px;
+                font-size: 1em;
+            }
         }
     </style>
 </head>
@@ -682,6 +738,12 @@
         <div id="resultsSection" class="results-section">
             <div class="results-header">
                 <h2 class="results-title">Результаты поиска</h2>
+            </div>
+
+            <!-- Вкладки для переключения между ЧАЙ и КОФЕ -->
+            <div class="category-tabs">
+                <button class="category-tab active" data-category="tea">ЧАЙ</button>
+                <button class="category-tab" data-category="coffee">КОФЕ</button>
             </div>
 
             <div class="tt-info">
@@ -735,16 +797,55 @@
     
     <script>
         let workbook = null;
-        let worksheet = null;
-        let headers = [];
-        let dataRows = [];
-        let skuStartIndex = null;
+        let teaWorksheet = null;
+        let coffeeWorksheet = null;
+        let teaHeaders = [];
+        let coffeeHeaders = [];
+        let teaDataRows = [];
+        let coffeeDataRows = [];
+        let teaSkuStartIndex = null;
+        let coffeeSkuStartIndex = null;
+        let currentCategory = 'tea'; // 'tea' или 'coffee'
         let currentFilter = 'mml';
         let currentRowData = null;
         let allSkuData = [];
         
         // Кэш для индексов колонок (ускоряет поиск)
         const columnIndexCache = new Map();
+
+        // Функция для получения данных активной категории
+        function getActiveData() {
+            if (currentCategory === 'tea') {
+                return {
+                    worksheet: teaWorksheet,
+                    headers: teaHeaders,
+                    dataRows: teaDataRows,
+                    skuStartIndex: teaSkuStartIndex
+                };
+            } else {
+                return {
+                    worksheet: coffeeWorksheet,
+                    headers: coffeeHeaders,
+                    dataRows: coffeeDataRows,
+                    skuStartIndex: coffeeSkuStartIndex
+                };
+            }
+        }
+
+        // Функция для установки данных активной категории
+        function setActiveData(worksheet, headers, dataRows, skuStartIndex) {
+            if (currentCategory === 'tea') {
+                teaWorksheet = worksheet;
+                teaHeaders = headers;
+                teaDataRows = dataRows;
+                teaSkuStartIndex = skuStartIndex;
+            } else {
+                coffeeWorksheet = worksheet;
+                coffeeHeaders = headers;
+                coffeeDataRows = dataRows;
+                coffeeSkuStartIndex = skuStartIndex;
+            }
+        }
 
         // Функция для преобразования текста в Title Case (каждое слово с заглавной буквы)
         function toTitleCase(str) {
@@ -757,21 +858,26 @@
             }).join(' ');
         }
 
-        // Колонки для отображения информации
-        const infoColumns = [
-            { key: 'territoryCode', display: 'Код территории', search: ['Код территории'] },
-            { key: 'tp', display: 'ТП', search: ['ТП'] },
-            { key: 'ttCode', display: 'Код ТТ', search: ['Код ТТ'] },
-            { key: 'ttName', display: 'Название ТТ', search: ['Название ТТ'] },
-            { key: 'address', display: 'Адрес', search: ['Адрес'] },
-            { key: 'ttType', display: 'Тип ТТ', search: ['Тип ТТ'] },
-            { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
-            { key: 'planTea', display: 'План MML Чай', search: ['План MML Чай', 'План  MML Чай'] },
-            { key: 'factTeaQty', display: 'Факт MML Чай (кол-во)', search: ['Факт MML Чай (кол-во)', 'Факт MML Чай <br>(кол-во)', 'Факт MML Чай<br>(кол-во)', 'Факт MML Чай', 'кол-во'] },
-            { key: 'factTeaPercent', display: 'Факт MML Чай%', search: ['Факт MML Чай%', 'Факт MML Чай %', 'MML Чай%'] },
-            { key: 'completion', display: 'Выполнение MML ЧАЙ', search: ['Выполнение MML ЧАЙ', 'Выполнение<br>MML ЧАЙ', 'Выполнение<br/>MML ЧАЙ', 'Выполнение MML'] },
-            { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
-        ];
+        // Колонки для отображения информации (динамически меняются для чая/кофе)
+        function getInfoColumns() {
+            const categoryLabel = currentCategory === 'tea' ? 'Чай' : 'Кофе';
+            const categoryLabelUpper = currentCategory === 'tea' ? 'ЧАЙ' : 'КОФЕ';
+            
+            return [
+                { key: 'territoryCode', display: 'Код территории', search: ['Код территории'] },
+                { key: 'tp', display: 'ТП', search: ['ТП'] },
+                { key: 'ttCode', display: 'Код ТТ', search: ['Код ТТ'] },
+                { key: 'ttName', display: 'Название ТТ', search: ['Название ТТ'] },
+                { key: 'address', display: 'Адрес', search: ['Адрес'] },
+                { key: 'ttType', display: 'Тип ТТ', search: ['Тип ТТ'] },
+                { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
+                { key: 'plan', display: `План MML ${categoryLabel}`, search: [`План MML ${categoryLabel}`, `План  MML ${categoryLabel}`] },
+                { key: 'factQty', display: `Факт MML ${categoryLabel} (кол-во)`, search: [`Факт MML ${categoryLabel} (кол-во)`, `Факт MML ${categoryLabel} <br>(кол-во)`, `Факт MML ${categoryLabel}<br>(кол-во)`, `Факт MML ${categoryLabel}`, 'кол-во'] },
+                { key: 'factPercent', display: `Факт MML ${categoryLabel}%`, search: [`Факт MML ${categoryLabel}%`, `Факт MML ${categoryLabel} %`, `MML ${categoryLabel}%`] },
+                { key: 'completion', display: `Выполнение MML ${categoryLabelUpper}`, search: [`Выполнение MML ${categoryLabelUpper}`, `Выполнение<br>MML ${categoryLabelUpper}`, `Выполнение<br/>MML ${categoryLabelUpper}`, 'Выполнение MML'] },
+                { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
+            ];
+        }
 
         // URL файла данных
         const DATA_FILE_URL = 'https://raw.githubusercontent.com/Mayhelper/mayhelper/main/datamml.xlsx';
@@ -796,7 +902,7 @@
         }
 
         // Функция кэширования данных
-        function saveToCache(headersData, dataRowsData, skuStartIndexData, fileArrayBuffer) {
+        function saveToCache(fileArrayBuffer) {
             try {
                 const today = getDateString();
                 const loadTimestamp = new Date().toLocaleString('ru-RU', {
@@ -807,11 +913,18 @@
                     minute: '2-digit'
                 });
                 
-                // Сохраняем обработанные данные
+                // Сохраняем обработанные данные для обеих категорий
                 const cacheData = {
-                    headers: headersData,
-                    dataRows: dataRowsData,
-                    skuStartIndex: skuStartIndexData,
+                    tea: {
+                        headers: teaHeaders,
+                        dataRows: teaDataRows,
+                        skuStartIndex: teaSkuStartIndex
+                    },
+                    coffee: {
+                        headers: coffeeHeaders,
+                        dataRows: coffeeDataRows,
+                        skuStartIndex: coffeeSkuStartIndex
+                    },
                     loadDate: today,
                     loadTimestamp: loadTimestamp
                 };
@@ -906,9 +1019,16 @@
                 
                 if (cachedData && !shouldRefreshCache()) {
                     // Используем данные из кэша
-                    headers = cachedData.headers;
-                    dataRows = cachedData.dataRows;
-                    skuStartIndex = cachedData.skuStartIndex;
+                    if (cachedData.tea) {
+                        teaHeaders = cachedData.tea.headers;
+                        teaDataRows = cachedData.tea.dataRows;
+                        teaSkuStartIndex = cachedData.tea.skuStartIndex;
+                    }
+                    if (cachedData.coffee) {
+                        coffeeHeaders = cachedData.coffee.headers;
+                        coffeeDataRows = cachedData.coffee.dataRows;
+                        coffeeSkuStartIndex = cachedData.coffee.skuStartIndex;
+                    }
                     
                     // Загружаем файл для workbook (нужен для проверки стилей)
                     updateProgress(30);
@@ -940,17 +1060,18 @@
                         cellStyles: true
                     });
                     
-                    // Находим нужную вкладку
-                    const targetSheetName = 'MML чай без ПК';
+                    // Находим вкладки для чая и кофе
+                    const teaSheetName = 'MML чай без ПК';
+                    const coffeeSheetName = 'MML кофе';
+                    
                     for (let i = 0; i < workbook.SheetNames.length; i++) {
                         const sheetName = workbook.SheetNames[i];
-                        if (sheetName === targetSheetName || sheetName.includes('MML чай без ПК')) {
-                            worksheet = workbook.Sheets[sheetName];
-                            break;
+                        if (sheetName === teaSheetName || sheetName.includes('MML чай без ПК')) {
+                            teaWorksheet = workbook.Sheets[sheetName];
                         }
-                    }
-                    if (!worksheet) {
-                        worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                        if (sheetName === coffeeSheetName || sheetName.includes('MML кофе')) {
+                            coffeeWorksheet = workbook.Sheets[sheetName];
+                        }
                     }
                     
                     showFileInfo();
@@ -1020,71 +1141,58 @@
                     dense: false      // Используем sparse для экономии памяти
                 });
                 
-                // Ищем вкладку "MML чай без ПК"
+                // Ищем вкладки для чая и кофе
                 updateProgress(92);
-                const targetSheetName = 'MML чай без ПК';
-                let targetSheet = null;
+                const teaSheetName = 'MML чай без ПК';
+                const coffeeSheetName = 'MML кофе';
+                let teaSheet = null;
+                let coffeeSheet = null;
                 
                 // Проверяем все доступные листы
                 for (let i = 0; i < workbook.SheetNames.length; i++) {
                     const sheetName = workbook.SheetNames[i];
-                    if (sheetName === targetSheetName || sheetName.includes('MML чай без ПК')) {
-                        targetSheet = workbook.Sheets[sheetName];
-                        console.log('Найдена вкладка:', sheetName);
-                        break;
+                    if (sheetName === teaSheetName || sheetName.includes('MML чай без ПК')) {
+                        teaSheet = workbook.Sheets[sheetName];
+                        console.log('Найдена вкладка ЧАЙ:', sheetName);
+                    }
+                    if (sheetName === coffeeSheetName || sheetName.includes('MML кофе')) {
+                        coffeeSheet = workbook.Sheets[sheetName];
+                        console.log('Найдена вкладка КОФЕ:', sheetName);
                     }
                 }
                 
-                // Если не нашли нужную вкладку, используем первую
-                if (!targetSheet) {
-                    console.warn(`Вкладка "${targetSheetName}" не найдена. Доступные вкладки:`, workbook.SheetNames);
-                    console.warn('Используется первая вкладка:', workbook.SheetNames[0]);
-                    targetSheet = workbook.Sheets[workbook.SheetNames[0]];
+                // Если не нашли вкладки, предупреждаем
+                if (!teaSheet) {
+                    console.warn(`Вкладка "${teaSheetName}" не найдена.`);
+                }
+                if (!coffeeSheet) {
+                    console.warn(`Вкладка "${coffeeSheetName}" не найдена.`);
                 }
                 
-                worksheet = targetSheet;
+                // Обрабатываем данные по чаю
+                if (teaSheet) {
+                    currentCategory = 'tea';
+                    await processSheetData(teaSheet, updateProgress, 94, 97);
+                }
                 
-                // Получаем данные в виде массива массивов
-                updateProgress(94);
-                const sheetData = XLSX.utils.sheet_to_json(targetSheet, { 
-                    header: 1,
-                    raw: false,
-                    defval: ''
-                });
+                // Обрабатываем данные по кофе
+                if (coffeeSheet) {
+                    currentCategory = 'coffee';
+                    await processSheetData(coffeeSheet, updateProgress, 97, 99);
+                }
                 
-                // Находим строку с заголовками (строка 4, индекс 3)
-                if (sheetData.length >= 4) {
-                    headers = sheetData[3]; // Строка 4 (индекс 3)
-                    
-                    // Находим индекс столбца "Включать в расчёт SDO"
-                    updateProgress(96);
-                    const sdoIndex = findColumnIndex(['Включать в расчёт SDO']);
-                    
-                    if (sdoIndex !== -1) {
-                        skuStartIndex = sdoIndex + 1;
-                        
-                        // Собираем строки с данными
-                        dataRows = [];
-                        for (let i = 4; i < sheetData.length; i++) {
-                            const row = sheetData[i];
-                            if (row && row.length > 0) {
-                                dataRows.push(row);
-                            }
-                        }
-                        
-                        // Логирование отключено для ускорения
-                        // console.log('Файл успешно загружен. Найдено строк:', dataRows.length);
-                        // console.log('SKU начинаются с колонки:', skuStartIndex);
-                        
-                        // Сохраняем данные в кэш
-                        saveToCache(headers, dataRows, skuStartIndex, arrayBuffer);
-                        
-                        // Показываем информацию о файле
-                        showFileInfo();
-                        
-                        // Активируем кнопку поиска
-                        document.getElementById('searchBtn').disabled = false;
-                        
+                // Возвращаемся к чаю по умолчанию
+                currentCategory = 'tea';
+                
+                // Сохраняем данные в кэш
+                saveToCache(arrayBuffer);
+                
+                // Показываем информацию о файле
+                showFileInfo();
+                
+                // Активируем кнопку поиска
+                document.getElementById('searchBtn').disabled = false;
+                
                         // Показываем дату загрузки и кнопку обновления
                         const loadTimestamp = new Date().toLocaleString('ru-RU', {
                             day: '2-digit',
@@ -1093,23 +1201,13 @@
                             hour: '2-digit',
                             minute: '2-digit'
                         });
-                        const loadDateInfo = document.getElementById('loadDateInfo');
                         loadDateInfo.textContent = `Данные загружены - ${loadTimestamp}`;
                         loadDateInfo.style.display = 'block';
                         document.getElementById('refreshDataBtn').style.display = 'inline-block';
                         document.getElementById('loading').classList.add('completed');
-                        
-                        // Завершение загрузки
-                        updateProgress(100, 'Осталось 0%');
-                        
-                    } else {
-                        showError('Не удалось найти колонку "Включать в расчёт SDO"');
-                        document.getElementById('loading').style.display = 'none';
-                    }
-                } else {
-                    showError('Файл не содержит достаточно данных');
-                    document.getElementById('loading').style.display = 'none';
-                }
+                
+                // Завершение загрузки
+                updateProgress(100, 'Осталось 0%');
                 
             } catch (error) {
                 console.error('Ошибка при загрузке файла:', error);
@@ -1140,10 +1238,52 @@
             loadFileFromServer();
         });
 
+        // Функция обработки данных листа (чай или кофе)
+        async function processSheetData(sheet, updateProgress, startProgress, endProgress) {
+            updateProgress(startProgress);
+            const sheetData = XLSX.utils.sheet_to_json(sheet, { 
+                header: 1,
+                raw: false,
+                defval: ''
+            });
+            
+            // Находим строку с заголовками (строка 4, индекс 3)
+            if (sheetData.length >= 4) {
+                const headers = sheetData[3]; // Строка 4 (индекс 3)
+                
+                // Находим индекс столбца "Включать в расчёт SDO"
+                const sdoIndex = findColumnIndex(['Включать в расчёт SDO'], headers);
+                
+                if (sdoIndex !== -1) {
+                    const skuStartIndex = sdoIndex + 1;
+                    
+                    // Собираем строки с данными
+                    const dataRows = [];
+                    for (let i = 4; i < sheetData.length; i++) {
+                        const row = sheetData[i];
+                        if (row && row.length > 0 && row.some(cell => cell !== '')) {
+                            dataRows.push(row);
+                        }
+                    }
+                    
+                    // Сохраняем данные для активной категории
+                    setActiveData(sheet, headers, dataRows, skuStartIndex);
+                    
+                    console.log(`Категория: ${currentCategory.toUpperCase()}, найдено строк: ${dataRows.length}, SKU начинаются с колонки: ${skuStartIndex}`);
+                } else {
+                    console.warn(`Не удалось найти колонку "Включать в расчёт SDO" для категории ${currentCategory}`);
+                }
+            }
+            
+            updateProgress(endProgress);
+        }
+
         // Функция для поиска индекса колонки (с кэшированием)
-        function findColumnIndex(searchTerms) {
-            // Создаем ключ для кэша
-            const cacheKey = searchTerms.join('|');
+        function findColumnIndex(searchTerms, headersArray = null) {
+            const activeHeaders = headersArray || getActiveData().headers;
+            
+            // Создаем ключ для кэша (включая категорию для уникальности)
+            const cacheKey = `${currentCategory}|${searchTerms.join('|')}`;
             
             // Проверяем кэш
             if (columnIndexCache.has(cacheKey)) {
@@ -1151,8 +1291,8 @@
             }
             
             // Ищем колонку
-            for (let i = 0; i < headers.length; i++) {
-                let header = headers[i] ? headers[i].toString().trim() : '';
+            for (let i = 0; i < activeHeaders.length; i++) {
+                let header = activeHeaders[i] ? activeHeaders[i].toString().trim() : '';
                 // Убираем HTML теги и лишние пробелы для более точного поиска
                 header = header.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim();
                 
@@ -1203,8 +1343,10 @@
 
             document.getElementById('loading').style.display = 'block';
 
+            const { headers, dataRows } = getActiveData();
+
             // Находим индекс колонки "Код ТТ"
-            const ttCodeIndex = findColumnIndex(['Код ТТ']);
+            const ttCodeIndex = findColumnIndex(['Код ТТ'], headers);
             if (ttCodeIndex === -1) {
                 showError('Не найдена колонка "Код ТТ" в файле');
                 document.getElementById('loading').style.display = 'none';
@@ -1257,6 +1399,7 @@
         function displayTTInfo() {
             const ttInfoContent = document.getElementById('ttInfoContent');
             let html = '';
+            const infoColumns = getInfoColumns(); // Получаем динамические колонки
             
             infoColumns.forEach(col => {
                 const index = findColumnIndex(col.search);
@@ -1265,7 +1408,7 @@
                     value = currentRowData[index].toString().trim();
                     
                     // Специальная обработка для процентов
-                    if (col.key === 'factTeaPercent') {
+                    if (col.key === 'factPercent') {
                         // Убираем знак $ в начале значения, если есть
                         if (value && value !== '—' && value.startsWith('$')) {
                             value = value.substring(1).trim();
@@ -1302,6 +1445,8 @@
 
         function collectSkuData(rowIndex) {
             allSkuData = [];
+            
+            const { worksheet, headers, dataRows, skuStartIndex } = getActiveData();
             
             if (skuStartIndex === null || !currentRowData) return;
             
@@ -1449,6 +1594,9 @@
         });
 
         function showFileInfo() {
+            const { worksheet } = getActiveData();
+            if (!worksheet) return;
+            
             console.log('Worksheet keys:', Object.keys(worksheet).slice(0, 10));
             
             // Проверяем, есть ли у некоторых ячеек стили
@@ -1461,6 +1609,47 @@
                 }
             }
         }
+
+        // Обработчики переключения категорий (ЧАЙ/КОФЕ) - используем делегирование событий
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('category-tab')) {
+                const category = e.target.getAttribute('data-category');
+                
+                // Обновляем активную вкладку
+                document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // Переключаем категорию
+                currentCategory = category;
+                
+                // Очищаем кэш индексов колонок
+                columnIndexCache.clear();
+                
+                // Если есть загруженные данные, обновляем отображение
+                if (currentRowData) {
+                    displayTTInfo();
+                    // Находим индекс строки для текущей категории
+                    const { headers, dataRows } = getActiveData();
+                    const ttCodeIndex = findColumnIndex(['Код ТТ'], headers);
+                    if (ttCodeIndex !== -1) {
+                        const searchCode = document.getElementById('searchInput').value.trim();
+                        let foundRowIndex = -1;
+                        for (let i = 0; i < dataRows.length; i++) {
+                            const row = dataRows[i];
+                            if (row[ttCodeIndex] && row[ttCodeIndex].toString().trim() === searchCode) {
+                                foundRowIndex = i;
+                                currentRowData = row;
+                                break;
+                            }
+                        }
+                        if (foundRowIndex !== -1) {
+                            collectSkuData(foundRowIndex);
+                            applyFilter(currentFilter);
+                        }
+                    }
+                }
+            }
+        });
 
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
