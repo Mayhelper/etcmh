@@ -1,1419 +1,1979 @@
-// Глобальная переменная для хранения данных из Excel
-let adaptationData = {};
-let teamsData = {};
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Анализатор MML отчетов - Фильтр по заливке</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-// URL шаблона
-const TEMPLATE_URL = 'https://raw.githubusercontent.com/Mayhelper/mayhelper/main/planadapt.xlsx';
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            touch-action: pan-x pan-y;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* Разрешаем выделение текста в полях ввода */
+        input, textarea {
+            -webkit-user-select: text;
+            user-select: text;
+        }
 
-// DOM элементы
-const employeeNameInput = document.getElementById('employeeName');
-const teamSelect = document.getElementById('team');
-const positionSelect = document.getElementById('position');
-const managerInput = document.getElementById('manager');
-const mentorInput = document.getElementById('mentor');
-const startDateInput = document.getElementById('startDate');
-const endDateInput = document.getElementById('endDate');
-const adaptationPeriodInput = document.getElementById('adaptationPeriod');
-const employeeSignatureInput = document.getElementById('employeeSignature');
-const managerSignatureInput = document.getElementById('managerSignature');
-const mentorSignatureInput = document.getElementById('mentorSignature');
-const orientationHint = document.getElementById('orientationHint');
-const statusText = document.getElementById('statusText');
-const statusIcon = document.getElementById('statusIcon');
-const saveStatus = document.getElementById('saveStatus');
-const exportBtn = document.getElementById('exportBtn');
-const downloadContainer = document.getElementById('downloadContainer');
-const statTeams = document.getElementById('statTeams');
-const statPositions = document.getElementById('statPositions');
-const statTeamsBadge = document.getElementById('statTeamsBadge');
-const statPositionsBadge = document.getElementById('statPositionsBadge');
-const fileUploadBlock = document.getElementById('fileUploadBlock');
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            padding: 30px;
+        }
 
-// Таблицы - инициализируются после загрузки DOM
-let mandatoryTrainingTable;
-let additionalTrainingTable;
-let meetingsTable;
-let tasksTable;
-let kpiTable;
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eaeaea;
+        }
 
-// Кнопки добавления
-let addMandatoryTaskBtn;
-let addAdditionalTaskBtn;
-let addMeetingBtn;
-let addTaskBtn;
-let addKpiBtn;
+        h1 {
+            color: #2c3e50;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
 
-// Флаг для отслеживания инициализации обработчика positionSelect
-let positionSelectHandlerInitialized = false;
+        h1 .mml-red {
+            color: #e74c3c;
+        }
 
-// Функция инициализации таблиц
-function initTables() {
-    try {
-        const mandatoryTraining = document.getElementById('mandatoryTraining');
-        const additionalTraining = document.getElementById('additionalTraining');
-        const meetings = document.getElementById('meetings');
-        const tasks = document.getElementById('tasks');
-        const kpi = document.getElementById('kpi');
-        
-        if (mandatoryTraining) {
-            mandatoryTrainingTable = mandatoryTraining.getElementsByTagName('tbody')[0];
+        h1 .mml-red {
+            color: #e74c3c;
         }
-        if (additionalTraining) {
-            additionalTrainingTable = additionalTraining.getElementsByTagName('tbody')[0];
-        }
-        if (meetings) {
-            meetingsTable = meetings.getElementsByTagName('tbody')[0];
-        }
-        if (tasks) {
-            tasksTable = tasks.getElementsByTagName('tbody')[0];
-        }
-        if (kpi) {
-            kpiTable = kpi.getElementsByTagName('tbody')[0];
-        }
-        
-        addMandatoryTaskBtn = document.getElementById('addMandatoryTask');
-        addAdditionalTaskBtn = document.getElementById('addAdditionalTask');
-        addMeetingBtn = document.getElementById('addMeeting');
-        addTaskBtn = document.getElementById('addTask');
-        addKpiBtn = document.getElementById('addKpi');
-        
-        // Устанавливаем обработчики событий для кнопок добавления
-        if (addMandatoryTaskBtn && mandatoryTrainingTable) {
-            addMandatoryTaskBtn.addEventListener('click', () => addTaskRow(mandatoryTrainingTable, '', true));
-        }
-        if (addAdditionalTaskBtn && additionalTrainingTable) {
-            addAdditionalTaskBtn.addEventListener('click', () => addTaskRow(additionalTrainingTable, '', true));
-        }
-        if (addMeetingBtn && meetingsTable) {
-            addMeetingBtn.addEventListener('click', () => addTaskRow(meetingsTable, '', true));
-        }
-        if (addTaskBtn && tasksTable) {
-            addTaskBtn.addEventListener('click', () => addTaskRow(tasksTable, '', true));
-        }
-        if (addKpiBtn && kpiTable) {
-            addKpiBtn.addEventListener('click', () => addKpiRow('', '', true));
-        }
-        
-        // Устанавливаем обработчик для выбора должности после инициализации таблиц (только один раз)
-        if (positionSelect && !positionSelectHandlerInitialized) {
-            positionSelect.addEventListener('change', loadPositionData);
-            positionSelectHandlerInitialized = true;
-            console.log('Обработчик для positionSelect установлен');
-        }
-    } catch (error) {
-        console.error('Ошибка при инициализации таблиц:', error);
-    }
-}
 
-// Функция для проверки ориентации
-function checkOrientation() {
-    const isPortrait = window.innerHeight > window.innerWidth;
-    const isMobile = window.innerWidth <= 768;
-    
-    if (isMobile && isPortrait) {
-        orientationHint.classList.add('show');
-    } else {
-        orientationHint.classList.remove('show');
-    }
-}
-
-// Функция обновления статуса сохранения
-function updateSaveStatus(type, message) {
-    saveStatus.textContent = message;
-    saveStatus.className = 'save-status show ' + type;
-    
-    if (type === 'success' || type === 'error') {
-        setTimeout(() => {
-            saveStatus.classList.remove('show');
-        }, 5000);
-    }
-}
-
-// Обновление списка должностей при выборе команды
-function updatePositionsByTeam(selectedTeam) {
-    // Очищаем список и добавляем опцию по умолчанию безопасным способом
-    positionSelect.textContent = '';
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = 'Выберите должность';
-    positionSelect.appendChild(defaultOption);
-    
-    if (!selectedTeam) {
-        positionSelect.disabled = true;
-        return;
-    }
-    
-    const positions = teamsData[selectedTeam];
-    
-    if (positions && positions.length > 0) {
-        positionSelect.disabled = false;
-        
-        positions.forEach(position => {
-            const option = document.createElement('option');
-            option.value = position.name;
-            option.textContent = position.name;
-            positionSelect.appendChild(option);
-        });
-    } else {
-        positionSelect.disabled = true;
-        positionSelect.textContent = '';
-        const noOption = document.createElement('option');
-        noOption.value = '';
-        noOption.textContent = 'Нет должностей для этой команды';
-        positionSelect.appendChild(noOption);
-    }
-}
-
-// Загрузка файла с сервера
-async function loadFileFromServer() {
-    try {
-        updateFileStatus('info', 'Загрузка шаблона адаптации...');
-        hideFileStats();
-        
-        const response = await fetch(TEMPLATE_URL);
-        
-        if (!response.ok) {
-            throw new Error(`Ошибка загрузки: ${response.status} ${response.statusText}`);
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1em;
+            margin-bottom: 15px;
         }
-        
-        updateFileStatus('info', 'Обработка данных...');
-        
-        const arrayBuffer = await response.arrayBuffer();
-        
-        adaptationData = {};
-        teamsData = {};
-        
-        const data = new Uint8Array(arrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        
-        updateFileStatus('info', 'Парсинг данных...');
-        
-        // Обрабатываем лист "Роли"
-        if (workbook.Sheets["Роли"]) {
-            const rolesSheet = XLSX.utils.sheet_to_json(workbook.Sheets["Роли"], { header: 1 });
-            
-            for (let i = 1; i < rolesSheet.length; i++) {
-                const row = rolesSheet[i];
-                if (row && row.length >= 3) {
-                    const position = row[0];
-                    const team = row[1];
-                    const period = row[2];
-                    
-                    if (position && team) {
-                        adaptationData[position] = {
-                            team: team,
-                            period: period,
-                            mandatoryTraining: [],
-                            additionalTraining: [],
-                            meetings: [],
-                            tasks: [],
-                            kpi: []
-                        };
-                        
-                        if (!teamsData[team]) {
-                            teamsData[team] = [];
-                        }
-                        teamsData[team].push({
-                            name: position,
-                            period: period
-                        });
-                    }
-                }
+
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #ffc107;
+            font-size: 0.95em;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 2px dashed #3498db;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #2980b9;
+            background: #f0f7ff;
+        }
+
+        .file-input-wrapper {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .file-label {
+            background: #3498db;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+
+        .file-label:hover {
+            background: #2980b9;
+        }
+
+        .file-name {
+            color: #2c3e50;
+            font-style: italic;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            flex-grow: 1;
+            min-width: 200px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .search-section {
+            background: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #eaeaea;
+        }
+
+        .search-input-wrapper {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex-grow: 1;
+            padding: 14px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            min-width: 300px;
+            text-transform: uppercase;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+
+        .search-btn {
+            background: #2ecc71;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.3s;
+        }
+
+        .search-btn:hover {
+            background: #27ae60;
+        }
+
+        .search-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .results-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eaeaea;
+        }
+
+        .results-title {
+            font-size: 1.3em;
+            color: #2c3e50;
+        }
+
+        .results-count {
+            background: #3498db;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            transition: background-color 0.3s;
+        }
+
+        .results-count.coffee-active {
+            background: #2ecc71;
+        }
+
+        .tt-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+            transition: border-left-color 0.3s;
+        }
+
+        .tt-info.coffee-active {
+            border-left-color: #2ecc71;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .info-grid-compact {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #eaeaea;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+
+        .info-item:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .info-label {
+            font-size: 0.7em;
+            color: #7f8c8d;
+            font-weight: 500;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.9em;
+            word-break: break-word;
+        }
+
+        .info-value.low-percent {
+            color: #e74c3c;
+            animation: pulse 2s infinite;
+        }
+
+        /* Специальный блок для метрик MML */
+        .mml-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #eaeaea;
+        }
+
+        /* Компактный блок для метрик MML (в одну строку с другими полями) */
+        .mml-metrics-compact {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .mml-metric {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 8px;
+            border: 2px solid #3498db;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .mml-metric:hover {
+            border-color: #2980b9;
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .mml-metric.coffee-active {
+            border-color: #2ecc71;
+        }
+
+        .mml-metric.coffee-active:hover {
+            border-color: #27ae60;
+            box-shadow: 0 4px 8px rgba(46, 204, 113, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .mml-metric-label {
+            font-size: 0.7em;
+            color: #7f8c8d;
+            font-weight: 500;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mml-metric-value {
+            font-weight: 700;
+            font-size: 1.3em;
+            color: #2c3e50;
+        }
+
+        .mml-metric-value.low-percent {
+            color: #e74c3c;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .filter-options-container {
+            margin-bottom: 20px;
+            padding: 0;
+        }
+
+        .sku-table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #eaeaea;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .sku-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        .sku-table th {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+
+        .sku-table tr {
+            border-bottom: 1px solid #eaeaea;
+            transition: background 0.2s;
+        }
+
+        .sku-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .sku-table td {
+            padding: 12px 15px;
+        }
+
+        .sku-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .sku-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .status-green-fill {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-no-fill {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-icon {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .status-green-fill .status-icon {
+            background: #28a745;
+        }
+
+        .status-no-fill .status-icon {
+            background: #dc3545;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .no-results-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .error-message {
+            background: #ffeaea;
+            color: #e74c3c;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #e74c3c;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #3498db;
+        }
+
+        .loading.completed {
+            display: block;
+        }
+
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        .progress-bar-container {
+            width: 33.33%;
+            max-width: 300px;
+            margin: 15px auto 5px auto;
+            background-color: #f3f3f3;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 20px;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #e3f2fd, #90caf9, #64b5f6, #42a5f5);
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-bar-percent {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: 600;
+            font-size: 0.75em;
+            z-index: 2;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+            width: 100%;
+            text-align: center;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .progress-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            line-height: 20px;
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 0.85em;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .progress-label {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.85em;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+
+        .loading-spinner-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .loading-spinner-small {
+            border: 3px solid #e3f2fd;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        .load-date-info {
+            text-align: center;
+            color: #27ae60;
+            font-size: 0.85em;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        .refresh-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            margin-top: 10px;
+            transition: background 0.3s;
+            display: inline-block;
+        }
+
+        .refresh-btn:hover {
+            background: #2980b9;
+        }
+
+        .loading.completed {
+            padding: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .filter-options {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-options .results-count {
+            margin-left: auto;
+            margin-bottom: 0;
+        }
+
+        .filter-options .results-count {
+            margin-left: auto;
+            margin-bottom: 0;
+        }
+
+        .filter-btn {
+            padding: 8px 20px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9em;
+        }
+
+        .filter-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+            transition: all 0.3s;
+        }
+
+        .filter-btn.active.coffee-active {
+            background: #2ecc71;
+            border-color: #2ecc71;
+        }
+
+        /* Вкладки для переключения ЧАЙ/КОФЕ */
+        .category-tabs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .category-tab {
+            padding: 12px 40px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .category-tab.active[data-category="tea"] {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .category-tab.active[data-category="coffee"] {
+            background: #2ecc71;
+            color: white;
+            border-color: #2ecc71;
+        }
+
+        .category-tab[data-category="tea"]:hover:not(.active) {
+            background: #e8f4f8;
+            border-color: #3498db;
+        }
+
+        .category-tab[data-category="coffee"]:hover:not(.active) {
+            background: #e8f8f0;
+            border-color: #2ecc71;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eaeaea;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
             }
             
-            // Заполняем выпадающий список команд
-            if (teamSelect) {
-                teamSelect.textContent = '';
-                const defaultTeamOption = document.createElement('option');
-                defaultTeamOption.value = '';
-                defaultTeamOption.textContent = 'Выберите команду';
-                teamSelect.appendChild(defaultTeamOption);
-                
-                for (const team in teamsData) {
-                    const option = document.createElement('option');
-                    option.value = team;
-                    option.textContent = team;
-                    teamSelect.appendChild(option);
-                }
+            .file-input-wrapper,
+            .search-input-wrapper {
+                flex-direction: column;
+                align-items: stretch;
             }
-        }
-        
-        // Обрабатываем данные для каждой должности
-        let processedPositions = 0;
-        const totalPositions = Object.keys(adaptationData).length;
-        
-        for (const position in adaptationData) {
-            if (workbook.Sheets[position]) {
-                const positionSheet = XLSX.utils.sheet_to_json(workbook.Sheets[position], { header: 1 });
-                parsePositionData(position, positionSheet);
-                processedPositions++;
-                
-                if (processedPositions % 5 === 0 || processedPositions === totalPositions) {
-                    updateFileStatus('info', `Обработка должностей... ${processedPositions}/${totalPositions}`);
-                }
-            }
-        }
-        
-        const teamCount = Object.keys(teamsData).length;
-        const positionCount = processedPositions;
-        updateFileStatus('success', 'Шаблон успешно загружен');
-        
-        // Обновляем статистику
-        updateFileStats(teamCount, positionCount);
-        
-    } catch (error) {
-        console.error('Ошибка при загрузке файла:', error);
-        console.error('Тип ошибки:', error.name);
-        console.error('Сообщение:', error.message);
-        console.error('Стек:', error.stack);
-        
-        let errorMessage = 'Ошибка при загрузке шаблона';
-        
-        // Более детальная обработка ошибок
-        if (error.message && error.message.includes('404')) {
-            errorMessage = 'Ошибка: Файл шаблона не найден на сервере (404)';
-        } else if (error.message && (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('CORS'))) {
-            errorMessage = 'Ошибка: Проблема с сетевым подключением или CORS';
-        } else if (error.message && error.message.includes('XLSX')) {
-            errorMessage = 'Ошибка: Не удалось прочитать файл Excel';
-        } else if (error.message) {
-            errorMessage = `Ошибка: ${error.message}`;
-        } else {
-            errorMessage = 'Ошибка: Неизвестная ошибка при загрузке';
-        }
-        
-        updateFileStatus('error', errorMessage);
-        hideFileStats();
-    }
-}
-
-// Обновление статуса загрузки файла
-function updateFileStatus(type, message, details = '') {
-    if (statusText) {
-        statusText.textContent = message;
-    }
-    
-    // Обновляем иконку в зависимости от статуса
-    if (statusIcon) {
-        statusIcon.className = 'status-icon';
-        switch(type) {
-            case 'info':
-                statusIcon.textContent = '⏳';
-                break;
-            case 'success':
-                statusIcon.textContent = '✅';
-                statusIcon.classList.add('success');
-                break;
-            case 'error':
-                statusIcon.textContent = '❌';
-                statusIcon.classList.add('error');
-                break;
-            case 'warning':
-                statusIcon.textContent = '⚠️';
-                break;
-        }
-    }
-}
-
-// Обновление статистики файла
-function updateFileStats(teamCount, positionCount) {
-    if (statTeams) {
-        statTeams.textContent = teamCount;
-    }
-    if (statPositions) {
-        statPositions.textContent = positionCount;
-    }
-    
-    // Показываем бейджи со статистикой
-    if (statTeamsBadge && teamCount > 0) {
-        statTeamsBadge.style.display = 'inline-flex';
-    }
-    if (statPositionsBadge && positionCount > 0) {
-        statPositionsBadge.style.display = 'inline-flex';
-    }
-}
-
-// Скрытие статистики
-function hideFileStats() {
-    if (statTeamsBadge) {
-        statTeamsBadge.style.display = 'none';
-    }
-    if (statPositionsBadge) {
-        statPositionsBadge.style.display = 'none';
-    }
-}
-
-// Обработчики событий
-teamSelect.addEventListener('change', function() {
-    updatePositionsByTeam(this.value);
-    positionSelect.value = '';
-    clearAllTables();
-});
-
-// Обработчик для positionSelect устанавливается в initTables() после инициализации таблиц
-if (startDateInput) {
-    startDateInput.addEventListener('change', calculateAdaptationPeriod);
-}
-window.addEventListener('resize', checkOrientation);
-window.addEventListener('orientationchange', checkOrientation);
-
-// Автоматическое заполнение подписей
-if (employeeNameInput) {
-    employeeNameInput.addEventListener('input', updateSignatures);
-}
-if (managerInput) {
-    managerInput.addEventListener('input', updateSignatures);
-}
-if (mentorInput) {
-    mentorInput.addEventListener('input', updateSignatures);
-}
-
-// Обработчики для кнопок добавления теперь устанавливаются в initTables()
-
-// Кнопка обновления удалена - теперь обновление происходит автоматически при загрузке страницы
-
-// Кнопка скрытия блока удалена - блок теперь всегда видим
-
-// Обновление подписей
-function updateSignatures() {
-    employeeSignatureInput.value = employeeNameInput.value || '';
-    managerSignatureInput.value = managerInput.value || '';
-    mentorSignatureInput.value = mentorInput.value || '';
-}
-
-function parsePositionData(position, sheetData) {
-    let currentSection = '';
-    let sectionCounts = {
-        mandatoryTraining: 0,
-        additionalTraining: 0,
-        meetings: 0,
-        tasks: 0,
-        kpi: 0
-    };
-    
-    console.log(`Парсинг данных для должности: ${position}, строк: ${sheetData.length}`);
-    
-    for (let i = 0; i < sheetData.length; i++) {
-        const row = sheetData[i];
-        if (!row || row.length === 0) continue;
-        
-        const firstCell = row[0];
-        
-        if (typeof firstCell === 'string') {
-            if (firstCell.includes('Курс ориентации - Обязательное обучение')) {
-                currentSection = 'mandatoryTraining';
-                console.log(`Найдена секция: ${currentSection}`);
-            } else if (firstCell.includes('Курс ориентации - Дополнительное обучение')) {
-                currentSection = 'additionalTraining';
-                console.log(`Найдена секция: ${currentSection}`);
-            } else if (firstCell.includes('Обязательные встречи')) {
-                currentSection = 'meetings';
-                console.log(`Найдена секция: ${currentSection}`);
-            } else if (firstCell.includes('Задачи')) {
-                currentSection = 'tasks';
-                console.log(`Найдена секция: ${currentSection}`);
-            } else if (firstCell.includes('КПР')) {
-                currentSection = 'kpi';
-                console.log(`Найдена секция: ${currentSection}`);
-            }
-            else if (firstCell === 'Название курса/тренинга' || 
-                     firstCell === 'Встреча' || 
-                     firstCell === 'Задача' ||
-                     firstCell === 'Наименование') {
-                continue;
-            }
-            else if (currentSection && firstCell && firstCell.trim() !== '') {
-                if (currentSection === 'kpi') {
-                    if (row.length >= 2) {
-                        adaptationData[position][currentSection].push({
-                            name: firstCell,
-                            weight: row[1] || ''
-                        });
-                        sectionCounts.kpi++;
-                    }
-                } else {
-                    adaptationData[position][currentSection].push(firstCell);
-                    sectionCounts[currentSection]++;
-                }
-            }
-        }
-    }
-    
-    console.log(`Данные для ${position}:`, sectionCounts);
-    console.log(`Полные данные:`, adaptationData[position]);
-}
-
-function loadPositionData() {
-    console.log('loadPositionData вызвана');
-    
-    if (!positionSelect) {
-        console.error('positionSelect не определен');
-        return;
-    }
-    
-    if (!positionSelect.value) {
-        console.log('positionSelect.value пусто');
-        return;
-    }
-    
-    const position = positionSelect.value;
-    console.log('Выбранная должность:', position);
-    
-    if (!adaptationData[position]) {
-        console.error('Нет данных для должности:', position);
-        console.log('Доступные должности:', Object.keys(adaptationData));
-        return;
-    }
-    
-    const data = adaptationData[position];
-    console.log('Данные для должности:', data);
-    
-    clearAllTables();
-    
-    // Проверяем, что таблицы инициализированы
-    if (!mandatoryTrainingTable || !additionalTrainingTable || !meetingsTable || !tasksTable || !kpiTable) {
-        console.warn('Таблицы не инициализированы, пытаемся инициализировать...');
-        initTables();
-    }
-    
-    if (data.mandatoryTraining && mandatoryTrainingTable) {
-        console.log('Добавляем обязательное обучение:', data.mandatoryTraining.length, 'задач');
-        data.mandatoryTraining.forEach(task => {
-            addTaskRow(mandatoryTrainingTable, task, false);
-        });
-    } else {
-        console.log('Нет данных обязательного обучения или таблица не инициализирована');
-    }
-    
-    if (data.additionalTraining && additionalTrainingTable) {
-        console.log('Добавляем дополнительное обучение:', data.additionalTraining.length, 'задач');
-        data.additionalTraining.forEach(task => {
-            addTaskRow(additionalTrainingTable, task, false);
-        });
-    } else {
-        console.log('Нет данных дополнительного обучения или таблица не инициализирована');
-    }
-    
-    if (data.meetings && meetingsTable) {
-        console.log('Добавляем встречи:', data.meetings.length, 'встреч');
-        data.meetings.forEach(meeting => {
-            addTaskRow(meetingsTable, meeting, false);
-        });
-    } else {
-        console.log('Нет данных встреч или таблица не инициализирована');
-    }
-    
-    if (data.tasks && tasksTable) {
-        console.log('Добавляем задачи:', data.tasks.length, 'задач');
-        data.tasks.forEach(task => {
-            addTaskRow(tasksTable, task, false);
-        });
-    } else {
-        console.log('Нет данных задач или таблица не инициализирована');
-    }
-    
-    if (data.kpi && kpiTable) {
-        console.log('Добавляем KPI:', data.kpi.length, 'KPI');
-        data.kpi.forEach(kpi => {
-            addKpiRow(kpi.name, kpi.weight, false);
-        });
-    } else {
-        console.log('Нет данных KPI или таблица не инициализирована');
-    }
-    
-    console.log('loadPositionData завершена');
-}
-
-function addTaskRow(table, taskName, isNew) {
-    const row = table.insertRow();
-    
-    const taskCell = row.insertCell(0);
-    if (taskName) {
-        taskCell.textContent = taskName;
-    } else {
-        const taskInput = document.createElement('input');
-        taskInput.type = 'text';
-        taskInput.placeholder = 'Введите задачу';
-        taskCell.appendChild(taskInput);
-    }
-    
-    // Устанавливаем текущую дату по умолчанию для поля "Дата план"
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    
-    const planDateCell = row.insertCell(1);
-    const planDateInput = document.createElement('input');
-    planDateInput.type = 'date';
-    planDateInput.placeholder = 'Выберите дату';
-    planDateInput.value = todayStr;
-    planDateCell.appendChild(planDateInput);
-    
-    const factDateCell = row.insertCell(2);
-    const factDateInput = document.createElement('input');
-    factDateInput.type = 'date';
-    factDateInput.placeholder = 'Выберите дату';
-    factDateCell.appendChild(factDateInput);
-    
-    const completionCell = row.insertCell(3);
-    const completionSelect = document.createElement('select');
-    const option1 = document.createElement('option');
-    option1.value = '';
-    option1.textContent = 'Выберите статус';
-    completionSelect.appendChild(option1);
-    const option2 = document.createElement('option');
-    option2.value = '+';
-    option2.textContent = '+';
-    completionSelect.appendChild(option2);
-    const option3 = document.createElement('option');
-    option3.value = '-';
-    option3.textContent = '-';
-    completionSelect.appendChild(option3);
-    completionCell.appendChild(completionSelect);
-    
-    const mentorCell = row.insertCell(4);
-    const mentorInput = document.createElement('input');
-    mentorInput.type = 'text';
-    mentorInput.placeholder = 'Введите комментарий';
-    mentorCell.appendChild(mentorInput);
-    
-    const actionsCell = row.insertCell(5);
-    if (isNew) {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn btn-danger btn-small';
-        deleteBtn.textContent = 'Удалить';
-        deleteBtn.addEventListener('click', function() {
-            table.deleteRow(row.rowIndex - 1);
-        });
-        actionsCell.appendChild(deleteBtn);
-    }
-}
-
-function addKpiRow(name = '', weight = '', isNew) {
-    if (!kpiTable) {
-        console.error('Таблица KPI не инициализирована');
-        return;
-    }
-    const row = kpiTable.insertRow();
-    
-    const nameCell = row.insertCell(0);
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.value = name || '';
-    nameInput.placeholder = 'Введите КПР';
-    nameCell.appendChild(nameInput);
-    
-    const weightCell = row.insertCell(1);
-    const weightInput = document.createElement('input');
-    weightInput.type = 'text';
-    weightInput.value = weight || '';
-    weightInput.placeholder = 'Введите вес';
-    weightCell.appendChild(weightInput);
-    
-    const planCell = row.insertCell(2);
-    const planInput = document.createElement('input');
-    planInput.type = 'text';
-    planInput.placeholder = 'Введите план';
-    planCell.appendChild(planInput);
-    
-    const factCell = row.insertCell(3);
-    const factInput = document.createElement('input');
-    factInput.type = 'text';
-    factInput.placeholder = 'Введите факт';
-    factCell.appendChild(factInput);
-    
-    const percentCell = row.insertCell(4);
-    const percentInput = document.createElement('input');
-    percentInput.type = 'text';
-    percentInput.readOnly = true;
-    percentInput.placeholder = '%';
-    percentCell.appendChild(percentInput);
-    
-    const actionsCell = row.insertCell(5);
-    if (isNew) {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn btn-danger btn-small';
-        deleteBtn.textContent = 'Удалить';
-        deleteBtn.addEventListener('click', function() {
-            kpiTable.deleteRow(row.rowIndex - 1);
-        });
-        actionsCell.appendChild(deleteBtn);
-    }
-    
-    function calculatePercentage() {
-        const plan = parseFloat(planInput.value) || 0;
-        const fact = parseFloat(factInput.value) || 0;
-        
-        if (plan > 0) {
-            const percentage = (fact / plan) * 100;
-            percentInput.value = percentage.toFixed(2) + '%';
-        } else {
-            percentInput.value = '';
-        }
-    }
-    
-    planInput.addEventListener('input', calculatePercentage);
-    factInput.addEventListener('input', calculatePercentage);
-}
-
-function clearTable(table) {
-    if (table) {
-        while (table.rows.length > 0) {
-            table.deleteRow(0);
-        }
-    }
-}
-
-function clearAllTables() {
-    if (mandatoryTrainingTable) clearTable(mandatoryTrainingTable);
-    if (additionalTrainingTable) clearTable(additionalTrainingTable);
-    if (meetingsTable) clearTable(meetingsTable);
-    if (tasksTable) clearTable(tasksTable);
-    if (kpiTable) clearTable(kpiTable);
-}
-
-function calculateAdaptationPeriod() {
-    const startDate = new Date(startDateInput.value);
-    if (isNaN(startDate.getTime())) return;
-    
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + 3);
-    
-    const formatDate = (date) => {
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}.${month}.${year}`;
-    };
-    
-    endDateInput.value = endDate.toISOString().split('T')[0];
-    adaptationPeriodInput.value = `${formatDate(startDate)} - ${formatDate(endDate)}`;
-}
-
-// Функция для преобразования ArrayBuffer в Base64
-function arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
-}
-
-// Функция для получения всех данных формы в JSON
-function getAllFormData() {
-    const formData = {
-        // Основная информация
-        employeeName: document.getElementById('employeeName').value,
-        team: document.getElementById('team').value,
-        position: document.getElementById('position').value,
-        manager: document.getElementById('manager').value,
-        mentor: document.getElementById('mentor').value,
-        startDate: document.getElementById('startDate').value,
-        endDate: document.getElementById('endDate').value,
-        adaptationPeriod: document.getElementById('adaptationPeriod').value,
-        
-        // Данные таблиц
-        mandatoryTraining: getTableData(mandatoryTrainingTable),
-        additionalTraining: getTableData(additionalTrainingTable),
-        meetings: getTableData(meetingsTable),
-        tasks: getTableData(tasksTable),
-        kpi: getKPIData(kpiTable),
-        
-        // Комментарии и подписи
-        assessmentDate: document.getElementById('assessmentDate').value,
-        managerComments: document.getElementById('managerComments').value,
-        mentorComments: document.getElementById('mentorComments').value,
-        hrComments: document.getElementById('hrComments').value,
-        employeeAssessment: document.getElementById('employeeAssessment').value,
-        employeeSignature: document.getElementById('employeeSignature').value,
-        managerSignature: document.getElementById('managerSignature').value,
-        mentorSignature: document.getElementById('mentorSignature').value,
-        hrSignature: document.getElementById('hrSignature').value,
-        
-        // Метаданные
-        exportTimestamp: new Date().toISOString(),
-        version: '1.0'
-    };
-    
-    return formData;
-}
-
-// Функция для получения данных из таблицы
-function getTableData(table) {
-    const rows = table.getElementsByTagName('tr');
-    const data = [];
-    
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const cells = row.getElementsByTagName('td');
-        
-        // Пропускаем строку, если это заголовок или пустая строка
-        if (cells.length < 5) continue;
-        
-        const rowData = {
-            action: getCellValue(cells[0]),
-            planDate: getCellValue(cells[1]),
-            factDate: getCellValue(cells[2]),
-            completion: getCellValue(cells[3]),
-            comment: getCellValue(cells[4])
-        };
-        
-        data.push(rowData);
-    }
-    
-    return data;
-}
-
-// Функция для получения данных KPI
-function getKPIData(table) {
-    const rows = table.getElementsByTagName('tr');
-    const data = [];
-    
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const cells = row.getElementsByTagName('td');
-        
-        if (cells.length < 5) continue;
-        
-        const rowData = {
-            name: getCellValue(cells[0]),
-            weight: getCellValue(cells[1]),
-            plan: getCellValue(cells[2]),
-            fact: getCellValue(cells[3]),
-            percent: getCellValue(cells[4])
-        };
-        
-        data.push(rowData);
-    }
-    
-    return data;
-}
-
-// Вспомогательная функция для получения значения ячейки
-function getCellValue(cell) {
-    const input = cell.querySelector('input, select, textarea');
-    if (input) {
-        return input.value;
-    }
-    return cell.textContent.trim();
-}
-
-// Проверка, находимся ли мы в Cordova InAppBrowser
-function isCordovaInAppBrowser() {
-    return navigator.userAgent.includes('Crosswalk') || 
-           (navigator.userAgent.includes('Android') && navigator.userAgent.includes('Version')) ||
-           /inappbrowser/i.test(navigator.userAgent) ||
-           window.cordova !== undefined;
-}
-
-// Функция выгрузки данных в Excel
-async function exportToExcel() {
-    try {
-        updateSaveStatus('processing', 'Создание Excel файла...');
-        
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('План адаптации');
-
-        // Стили
-        const titleStyle = {
-            font: { bold: true, size: 18, color: { argb: 'FFFFFFFF' } },
-            alignment: { horizontal: 'center', vertical: 'middle' },
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2C3E50' } },
-            border: {
-                top: { style: 'medium', color: { argb: 'FF2C3E50' } },
-                left: { style: 'medium', color: { argb: 'FF2C3E50' } },
-                bottom: { style: 'medium', color: { argb: 'FF2C3E50' } },
-                right: { style: 'medium', color: { argb: 'FF2C3E50' } }
-            }
-        };
-
-        const sectionHeaderStyle = {
-            font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } },
-            alignment: { horizontal: 'center', vertical: 'middle' },
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3498DB' } },
-            border: {
-                top: { style: 'medium', color: { argb: 'FF2980B9' } },
-                left: { style: 'medium', color: { argb: 'FF2980B9' } },
-                bottom: { style: 'medium', color: { argb: 'FF2980B9' } },
-                right: { style: 'medium', color: { argb: 'FF2980B9' } }
-            }
-        };
-
-        const subsectionHeaderStyle = {
-            font: { bold: true, size: 12, color: { argb: 'FFFFFFFF' } },
-            alignment: { horizontal: 'center', vertical: 'middle' },
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5D6D7E' } },
-            border: {
-                top: { style: 'thin', color: { argb: 'FF2C3E50' } },
-                left: { style: 'thin', color: { argb: 'FF2C3E50' } },
-                bottom: { style: 'thin', color: { argb: 'FF2C3E50' } },
-                right: { style: 'thin', color: { argb: 'FF2C3E50' } }
-            }
-        };
-
-        const tableHeaderStyle = {
-            font: { bold: true, color: { argb: 'FFFFFFFF' } },
-            alignment: { horizontal: 'center', vertical: 'middle' },
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF34495E' } },
-            border: {
-                top: { style: 'thin', color: { argb: 'FF2C3E50' } },
-                left: { style: 'thin', color: { argb: 'FF2C3E50' } },
-                bottom: { style: 'thin', color: { argb: 'FF2C3E50' } },
-                right: { style: 'thin', color: { argb: 'FF2C3E50' } }
-            }
-        };
-
-        const labelStyle = {
-            font: { bold: true },
-            alignment: { vertical: 'middle' },
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } },
-            border: {
-                top: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                left: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                bottom: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                right: { style: 'thin', color: { argb: 'FFBDC3C7' } }
-            }
-        };
-
-        const valueStyle = {
-            alignment: { vertical: 'middle' },
-            border: {
-                top: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                left: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                bottom: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                right: { style: 'thin', color: { argb: 'FFBDC3C7' } }
-            }
-        };
-
-        const dataStyle = {
-            alignment: { vertical: 'middle' },
-            border: {
-                top: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                left: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                bottom: { style: 'thin', color: { argb: 'FFBDC3C7' } },
-                right: { style: 'thin', color: { argb: 'FFBDC3C7' } }
-            }
-        };
-
-        let currentRow = 1;
-
-        // === ЗАГОЛОВОК ===
-        const titleRow = worksheet.getRow(currentRow);
-        titleRow.getCell(1).value = 'ПЛАН АДАПТАЦИИ СОТРУДНИКА';
-        titleRow.getCell(1).style = titleStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        // === ОСНОВНАЯ ИНФОРМАЦИЯ ===
-        const mainInfoHeader = worksheet.getRow(currentRow);
-        mainInfoHeader.getCell(1).value = 'ОСНОВНАЯ ИНФОРМАЦИЯ';
-        mainInfoHeader.getCell(1).style = sectionHeaderStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        const mainInfoData = [
-            ['Фамилия Имя Отчество', document.getElementById('employeeName').value || ''],
-            ['Должность', document.getElementById('position').value || ''],
-            ['Команда/Сообщество', document.getElementById('team').value || ''],
-            ['Период адаптации', document.getElementById('adaptationPeriod').value || ''],
-            ['Руководитель', document.getElementById('manager').value || ''],
-            ['Наставник', document.getElementById('mentor').value || ''],
-            ['Дата начала адаптации', document.getElementById('startDate').value || ''],
-            ['Дата окончания адаптации', document.getElementById('endDate').value || '']
-        ];
-
-        mainInfoData.forEach(([label, value]) => {
-            const row = worksheet.getRow(currentRow);
-            row.getCell(1).value = label;
-            row.getCell(1).style = labelStyle;
             
-            row.getCell(2).value = value;
-            worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
-            row.getCell(2).style = valueStyle;
-            currentRow++;
-        });
-
-        // === 1. КУРС ОРИЕНТАЦИИ ===
-        const orientationHeader = worksheet.getRow(currentRow);
-        orientationHeader.getCell(1).value = '1. КУРС ОРИЕНТАЦИИ';
-        orientationHeader.getCell(1).style = sectionHeaderStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        // Обязательное обучение
-        const mandatoryHeader = worksheet.getRow(currentRow);
-        mandatoryHeader.getCell(1).value = 'ОБЯЗАТЕЛЬНОЕ ОБУЧЕНИЕ';
-        mandatoryHeader.getCell(1).style = subsectionHeaderStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        const mandatoryTableHeaders = ['Действия', 'Дата план', 'Дата факт', 'Отметка о выполнении', 'Комментарий/Наставник'];
-        const mandatoryHeaderRow = worksheet.getRow(currentRow);
-        mandatoryTableHeaders.forEach((header, index) => {
-            mandatoryHeaderRow.getCell(index + 1).value = header;
-            mandatoryHeaderRow.getCell(index + 1).style = tableHeaderStyle;
-        });
-        currentRow++;
-
-        const mandatoryRows = mandatoryTrainingTable.getElementsByTagName('tr');
-        for (let i = 0; i < mandatoryRows.length; i++) {
-            const row = mandatoryRows[i];
-            const cells = row.getElementsByTagName('td');
-            const dataRow = worksheet.getRow(currentRow);
+            .search-input,
+            .file-name {
+                min-width: unset;
+                width: 100%;
+            }
             
-            for (let j = 0; j < cells.length - 1; j++) {
-                const cell = cells[j];
-                const input = cell.querySelector('input, select');
-                if (input) {
-                    dataRow.getCell(j + 1).value = input.value;
-                } else {
-                    dataRow.getCell(j + 1).value = cell.textContent;
-                }
-                dataRow.getCell(j + 1).style = dataStyle;
+            h1 {
+                font-size: 1.8em;
             }
-            currentRow++;
-        }
 
-        // Дополнительное обучение
-        const additionalHeader = worksheet.getRow(currentRow);
-        additionalHeader.getCell(1).value = 'ДОПОЛНИТЕЛЬНОЕ ОБУЧЕНИЕ';
-        additionalHeader.getCell(1).style = subsectionHeaderStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
+            .tt-info {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
 
-        const additionalHeaderRow = worksheet.getRow(currentRow);
-        mandatoryTableHeaders.forEach((header, index) => {
-            additionalHeaderRow.getCell(index + 1).value = header;
-            additionalHeaderRow.getCell(index + 1).style = tableHeaderStyle;
-        });
-        currentRow++;
+            .info-grid,
+            .info-grid-compact {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
 
-        const additionalRows = additionalTrainingTable.getElementsByTagName('tr');
-        for (let i = 0; i < additionalRows.length; i++) {
-            const row = additionalRows[i];
-            const cells = row.getElementsByTagName('td');
-            const dataRow = worksheet.getRow(currentRow);
+            .info-grid-compact {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .info-item {
+                padding: 10px;
+            }
+
+            .info-label {
+                font-size: 0.65em;
+                margin-bottom: 4px;
+            }
+
+            .info-value {
+                font-size: 0.85em;
+            }
+
+            .mml-metrics-compact {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+            }
+
+            .mml-metrics {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .mml-metric {
+                padding: 10px;
+            }
+
+            .mml-metric-label {
+                font-size: 0.65em;
+                margin-bottom: 6px;
+            }
+
+            .mml-metric-value {
+                font-size: 1.1em;
+            }
+
+            .filter-options-container {
+                margin-bottom: 15px;
+            }
+
+            .filter-options {
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+                width: 100%;
+            }
+
+            .filter-btn {
+                flex: 1;
+                min-width: 120px;
+                padding: 10px 15px;
+                font-size: 0.9em;
+            }
+
+            .filter-options .results-count {
+                margin-left: 0;
+                margin-top: 10px;
+                width: 100%;
+                text-align: center;
+            }
+
+            .results-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+
+            .results-count {
+                align-self: flex-end;
+            }
+
+            .sku-table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .sku-table {
+                font-size: 0.85em;
+                width: 100%;
+                min-width: unset;
+            }
+
+            .sku-table th {
+                padding: 8px 6px;
+                font-size: 0.8em;
+            }
+
+            .sku-table td {
+                padding: 8px 6px;
+                font-size: 0.85em;
+                word-wrap: break-word;
+                word-break: break-word;
+            }
+
+            .sku-name {
+                font-size: 0.85em;
+                white-space: normal;
+                word-wrap: break-word;
+                word-break: break-word;
+                line-height: 1.4;
+            }
+
+            .sku-status {
+                font-size: 0.8em;
+                padding: 4px 8px;
+            }
+
+            .status-icon {
+                width: 8px;
+                height: 8px;
+            }
+
+            .category-tabs {
+                padding: 10px;
+                gap: 8px;
+            }
             
-            for (let j = 0; j < cells.length - 1; j++) {
-                const cell = cells[j];
-                const input = cell.querySelector('input, select');
-                if (input) {
-                    dataRow.getCell(j + 1).value = input.value;
-                } else {
-                    dataRow.getCell(j + 1).value = cell.textContent;
-                }
-                dataRow.getCell(j + 1).style = dataStyle;
+            .category-tab {
+                flex: 1;
+                padding: 10px 20px;
+                font-size: 1em;
             }
-            currentRow++;
         }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Факт прокупки <span class="mml-red">MML</span></h1>
+        </header>
 
-        // === 2. ОБЯЗАТЕЛЬНЫЕ ВСТРЕЧИ ===
-        const meetingsHeader = worksheet.getRow(currentRow);
-        meetingsHeader.getCell(1).value = '2. ОБЯЗАТЕЛЬНЫЕ ВСТРЕЧИ';
-        meetingsHeader.getCell(1).style = sectionHeaderStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
+        <div class="search-section">
+            <div class="search-input-wrapper">
+                <input type="text" 
+                       id="searchInput" 
+                       class="search-input" 
+                       placeholder="Введите код ТТ (например, ДМП-1003991)">
+                <button id="searchBtn" class="search-btn" disabled>
+                    Найти ТТ
+                </button>
+            </div>
+            <div id="errorMessage" class="error-message"></div>
+            <div id="loading" class="loading">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar">
+                        <span class="progress-bar-percent" id="progressBarPercent">0%</span>
+                    </div>
+                    <div class="progress-text" id="progressText">Осталось 100%</div>
+                </div>
+                <div class="loading-spinner-container">
+                    <div class="loading-spinner-small"></div>
+                    <div class="progress-label">Идет загрузка данных</div>
+                </div>
+                <div id="loadDateInfo" class="load-date-info" style="display: none;"></div>
+                <div style="text-align: center; margin-top: 10px;">
+                    <button id="refreshDataBtn" class="refresh-btn" style="display: none;">Обновить данные</button>
+                </div>
+            </div>
+        </div>
 
-        const meetingsTableHeaders = ['Встречи по процессу', 'Дата план', 'Дата факт', 'Отметка о выполнении', 'Комментарий/Наставник'];
-        const meetingsHeaderRow = worksheet.getRow(currentRow);
-        meetingsTableHeaders.forEach((header, index) => {
-            meetingsHeaderRow.getCell(index + 1).value = header;
-            meetingsHeaderRow.getCell(index + 1).style = tableHeaderStyle;
-        });
-        currentRow++;
+        <div id="resultsSection" class="results-section">
+            <div class="results-header">
+                <h2 class="results-title">Результаты поиска</h2>
+            </div>
 
-        const meetingRows = meetingsTable.getElementsByTagName('tr');
-        for (let i = 0; i < meetingRows.length; i++) {
-            const row = meetingRows[i];
-            const cells = row.getElementsByTagName('td');
-            const dataRow = worksheet.getRow(currentRow);
-            
-            for (let j = 0; j < cells.length - 1; j++) {
-                const cell = cells[j];
-                const input = cell.querySelector('input, select');
-                if (input) {
-                    dataRow.getCell(j + 1).value = input.value;
-                } else {
-                    dataRow.getCell(j + 1).value = cell.textContent;
-                }
-                dataRow.getCell(j + 1).style = dataStyle;
-            }
-            currentRow++;
-        }
+            <!-- Вкладки для переключения между ЧАЙ и КОФЕ -->
+            <div class="category-tabs">
+                <button class="category-tab active" data-category="tea">ЧАЙ</button>
+                <button class="category-tab" data-category="coffee">КОФЕ</button>
+            </div>
 
-        // === 3. ЗАДАЧИ ===
-        const tasksHeader = worksheet.getRow(currentRow);
-        tasksHeader.getCell(1).value = '3. ЗАДАЧИ';
-        tasksHeader.getCell(1).style = sectionHeaderStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
+            <div class="tt-info">
+                <div style="margin-bottom: 10px;">
+                    <strong style="font-size: 1.1em;">Информация о торговой точке:</strong>
+                </div>
+                <div id="ttInfoContent">
+                    <!-- Информация будет заполнена динамически -->
+                </div>
+            </div>
 
-        const tasksTableHeaders = ['Действия', 'Дата план', 'Дата факт', 'Отметка о выполнении', 'Комментарий/Наставник'];
-        const tasksHeaderRow = worksheet.getRow(currentRow);
-        tasksTableHeaders.forEach((header, index) => {
-            tasksHeaderRow.getCell(index + 1).value = header;
-            tasksHeaderRow.getCell(index + 1).style = tableHeaderStyle;
-        });
-        currentRow++;
+            <div class="filter-options-container">
+                <div class="filter-options">
+                    <button class="filter-btn active" data-filter="mml">План MML</button>
+                    <button class="filter-btn" data-filter="plus">Прокупленные MML</button>
+                    <div class="results-count" id="resultsCount">0 SKU</div>
+                </div>
+            </div>
 
-        const taskRows = tasksTable.getElementsByTagName('tr');
-        for (let i = 0; i < taskRows.length; i++) {
-            const row = taskRows[i];
-            const cells = row.getElementsByTagName('td');
-            const dataRow = worksheet.getRow(currentRow);
-            
-            for (let j = 0; j < cells.length - 1; j++) {
-                const cell = cells[j];
-                const input = cell.querySelector('input, select');
-                if (input) {
-                    dataRow.getCell(j + 1).value = input.value;
-                } else {
-                    dataRow.getCell(j + 1).value = cell.textContent;
-                }
-                dataRow.getCell(j + 1).style = dataStyle;
-            }
-            currentRow++;
-        }
+            <div class="sku-table-container">
+                <table class="sku-table" id="skuTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 70%;">Название SKU</th>
+                            <th style="width: 15%;">Плановый MML</th>
+                            <th style="width: 15%;">Прокупка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="skuTableBody">
+                        <!-- Данные будут заполнены динамически -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-        // === 4. КПР ===
-        const kpiHeader = worksheet.getRow(currentRow);
-        kpiHeader.getCell(1).value = '4. КПР';
-        kpiHeader.getCell(1).style = sectionHeaderStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
+        <div id="noResults" class="no-results" style="display: none;">
+            <div class="no-results-icon">🔍</div>
+            <p>Торговая точка с таким кодом не найдена</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Проверьте правильность введенного кода ТТ</p>
+        </div>
 
-        const kpiTableHeaders = ['Наименование', 'Вес', 'План', 'Факт', '% выполнения'];
-        const kpiHeaderRow = worksheet.getRow(currentRow);
-        kpiTableHeaders.forEach((header, index) => {
-            kpiHeaderRow.getCell(index + 1).value = header;
-            kpiHeaderRow.getCell(index + 1).style = tableHeaderStyle;
-        });
-        currentRow++;
+        <footer>
+            <p>(c) Разработано отделом ОРПП в 2025г. Все права принадлежат компании МАЙ.</p>
+        </footer>
+    </div>
 
-        const kpiRows = kpiTable.getElementsByTagName('tr');
-        for (let i = 0; i < kpiRows.length; i++) {
-            const row = kpiRows[i];
-            const cells = row.getElementsByTagName('td');
-            const dataRow = worksheet.getRow(currentRow);
-            
-            for (let j = 0; j < cells.length - 1; j++) {
-                const cell = cells[j];
-                const input = cell.querySelector('input');
-                if (input) {
-                    dataRow.getCell(j + 1).value = input.value;
-                } else {
-                    dataRow.getCell(j + 1).value = cell.textContent;
-                }
-                dataRow.getCell(j + 1).style = dataStyle;
-            }
-            currentRow++;
-        }
-
-        // === ЗАКЛЮЧЕНИЕ ===
-        const conclusionHeader = worksheet.getRow(currentRow);
-        conclusionHeader.getCell(1).value = 'ЗАКЛЮЧЕНИЕ РУКОВОДИТЕЛЯ ПО ИТОГАМ ПЕРИОДА АДАПТАЦИИ СОТРУДНИКА';
-        conclusionHeader.getCell(1).style = sectionHeaderStyle;
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        // Дата проведения оценки
-        const assessmentDateRow = worksheet.getRow(currentRow);
-        assessmentDateRow.getCell(1).value = 'Дата проведения оценки';
-        assessmentDateRow.getCell(1).style = labelStyle;
-        assessmentDateRow.getCell(2).value = document.getElementById('assessmentDate').value || '';
-        worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
-        assessmentDateRow.getCell(2).style = valueStyle;
-        currentRow++;
-
-        // Комментарии руководителя
-        const managerCommentsHeader = worksheet.getRow(currentRow);
-        managerCommentsHeader.getCell(1).value = 'Комментарии руководителя:';
-        managerCommentsHeader.getCell(1).style = { ...labelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F6F3' } } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        const managerCommentsRow = worksheet.getRow(currentRow);
-        managerCommentsRow.getCell(1).value = document.getElementById('managerComments').value || '_________________________________________________________________________________________';
-        managerCommentsRow.getCell(1).style = { ...valueStyle, alignment: { wrapText: true } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        managerCommentsRow.height = 60;
-        currentRow++;
-
-        // Комментарии наставника
-        const mentorCommentsHeader = worksheet.getRow(currentRow);
-        mentorCommentsHeader.getCell(1).value = 'Комментарии наставника:';
-        mentorCommentsHeader.getCell(1).style = { ...labelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F6F3' } } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        const mentorCommentsRow = worksheet.getRow(currentRow);
-        mentorCommentsRow.getCell(1).value = document.getElementById('mentorComments').value || '_________________________________________________________________________________________';
-        mentorCommentsRow.getCell(1).style = { ...valueStyle, alignment: { wrapText: true } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        mentorCommentsRow.height = 60;
-        currentRow++;
-
-        // Комментарии HR
-        const hrCommentsHeader = worksheet.getRow(currentRow);
-        hrCommentsHeader.getCell(1).value = 'Комментарии HR:';
-        hrCommentsHeader.getCell(1).style = { ...labelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F6F3' } } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        const hrCommentsRow = worksheet.getRow(currentRow);
-        hrCommentsRow.getCell(1).value = document.getElementById('hrComments').value || '_________________________________________________________________________________________';
-        hrCommentsRow.getCell(1).style = { ...valueStyle, alignment: { wrapText: true } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        hrCommentsRow.height = 60;
-        currentRow++;
-
-        // Оценка сотрудника
-        const employeeAssessmentHeader = worksheet.getRow(currentRow);
-        employeeAssessmentHeader.getCell(1).value = 'Оценка сотрудником периода вхождения в должность:';
-        employeeAssessmentHeader.getCell(1).style = { ...labelStyle, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F6F3' } } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        const employeeAssessmentRow = worksheet.getRow(currentRow);
-        employeeAssessmentRow.getCell(1).value = document.getElementById('employeeAssessment').value || '_________________________________________________________________________________________';
-        employeeAssessmentRow.getCell(1).style = { ...valueStyle, alignment: { wrapText: true } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        employeeAssessmentRow.height = 60;
-        currentRow++;
-
-        // ПОДПИСИ
-        const signaturesHeader = worksheet.getRow(currentRow);
-        signaturesHeader.getCell(1).value = 'ПОДПИСИ:';
-        signaturesHeader.getCell(1).style = { ...labelStyle, font: { bold: true, size: 12 } };
-        worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-        currentRow++;
-
-        const signaturesData = [
-            ['Сотрудник', document.getElementById('employeeSignature').value || '__________________________'],
-            ['Руководитель', document.getElementById('managerSignature').value || '__________________________'],
-            ['Наставник', document.getElementById('mentorSignature').value || '__________________________'],
-            ['HR бизнес-партнер', document.getElementById('hrSignature').value || '__________________________']
-        ];
-
-        signaturesData.forEach(([label, value]) => {
-            const row = worksheet.getRow(currentRow);
-            row.getCell(1).value = label;
-            row.getCell(1).style = labelStyle;
-            row.getCell(2).value = value;
-            worksheet.mergeCells(`B${currentRow}:E${currentRow}`);
-            row.getCell(2).style = valueStyle;
-            currentRow++;
-        });
-
-        // Настраиваем ширину колонок
-        worksheet.columns = [
-            { width: 40 },
-            { width: 15 },
-            { width: 15 },
-            { width: 20 },
-            { width: 20 }
-        ];
-
-        // Настраиваем высоту строк
-        worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber === 1) {
-                row.height = 30;
-            } else if ([2, 11, 12 + mandatoryRows.length + additionalRows.length, 13 + mandatoryRows.length + additionalRows.length + meetingRows.length, 14 + mandatoryRows.length + additionalRows.length + meetingRows.length + taskRows.length, 15 + mandatoryRows.length + additionalRows.length + meetingRows.length + taskRows.length + kpiRows.length].includes(rowNumber)) {
-                row.height = 25;
-            } else if ([12, 13 + mandatoryRows.length].includes(rowNumber)) {
-                row.height = 20;
-            }
-        });
-
-        worksheet.properties.defaultRowHeight = 20;
-
-        // Генерируем буфер
-        const buffer = await workbook.xlsx.writeBuffer();
-        const employeeName = document.getElementById('employeeName').value || 'сотрудник';
-        const position = document.getElementById('position').value || 'должность';
+    <!-- Библиотеки для работы с Excel -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <!-- Дополнительная библиотека для работы с цветами Excel -->
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <script>
+        let workbook = null;
+        let teaWorksheet = null;
+        let coffeeWorksheet = null;
+        let teaHeaders = [];
+        let coffeeHeaders = [];
+        let teaDataRows = [];
+        let coffeeDataRows = [];
+        let teaSkuStartIndex = null;
+        let coffeeSkuStartIndex = null;
+        let currentCategory = 'tea'; // 'tea' или 'coffee'
+        let currentFilter = 'mml';
+        let currentRowData = null;
+        let allSkuData = [];
         
-        // Очищаем имя файла от недопустимых символов
-        const safeEmployeeName = (employeeName || 'сотрудник').replace(/[<>:"/\\|?*]/g, '_');
-        const safePosition = (position || 'должность').replace(/[<>:"/\\|?*]/g, '_');
-        const fileName = `План адаптации - ${safeEmployeeName} - ${safePosition}.xlsx`;
-        
-        // Проверяем, находимся ли мы в Cordova InAppBrowser
-        if (isCordovaInAppBrowser()) {
-            // РЕЖИМ CORDOVA - ПЕРЕДАЕМ ДАННЫЕ ЧЕРЕЗ URL
-            
-            // Преобразуем буфер в Base64
-            const base64Data = arrayBufferToBase64(buffer);
-            
-            // Получаем все данные формы в JSON
-            const jsonData = getAllFormData();
-            const jsonString = JSON.stringify(jsonData);
-            
-            // Кодируем данные для URL
-            const fileNameEncoded = encodeURIComponent(fileName);
-            const jsonDataEncoded = encodeURIComponent(jsonString);
-            
-            // Проверяем размер данных
-            const base64Size = base64Data.length;
-            const maxSize = 10000; // Максимальный размер для передачи через URL
-            
-            if (base64Size < maxSize) {
-                // Если данные небольшие, передаем base64
-                const base64DataEncoded = encodeURIComponent(base64Data);
-                const redirectUrl = `cordova-file-ready://export?action=save&type=excel&filename=${fileNameEncoded}&data=${base64DataEncoded}&json=${jsonDataEncoded}&employee=${encodeURIComponent(employeeName)}&position=${encodeURIComponent(position)}`;
-                
-                // Делаем переход по URL
-                window.location.href = redirectUrl;
-                
-                updateSaveStatus('success', 'Файл передан в приложение');
+        // Кэш для индексов колонок (ускоряет поиск)
+        const columnIndexCache = new Map();
+
+        // Функция для получения данных активной категории
+        function getActiveData() {
+            if (currentCategory === 'tea') {
+                return {
+                    worksheet: teaWorksheet,
+                    headers: teaHeaders,
+                    dataRows: teaDataRows,
+                    skuStartIndex: teaSkuStartIndex
+                };
             } else {
-                // Если данные слишком большие, передаем только JSON
-                const redirectUrl = `cordova-file-ready://export?action=save&type=json&filename=${fileNameEncoded}&json=${jsonDataEncoded}&employee=${encodeURIComponent(employeeName)}&position=${encodeURIComponent(position)}&size=${base64Size}`;
+                return {
+                    worksheet: coffeeWorksheet,
+                    headers: coffeeHeaders,
+                    dataRows: coffeeDataRows,
+                    skuStartIndex: coffeeSkuStartIndex
+                };
+            }
+        }
+
+        // Функция для установки данных активной категории
+        function setActiveData(worksheet, headers, dataRows, skuStartIndex) {
+            if (currentCategory === 'tea') {
+                teaWorksheet = worksheet;
+                teaHeaders = headers;
+                teaDataRows = dataRows;
+                teaSkuStartIndex = skuStartIndex;
+            } else {
+                coffeeWorksheet = worksheet;
+                coffeeHeaders = headers;
+                coffeeDataRows = dataRows;
+                coffeeSkuStartIndex = skuStartIndex;
+            }
+        }
+
+        // Функция для преобразования текста в Title Case (каждое слово с заглавной буквы)
+        function toTitleCase(str) {
+            if (!str) return '';
+            return str.toLowerCase().split(' ').map(word => {
+                // Пропускаем пустые слова
+                if (!word) return word;
+                // Первая буква заглавная, остальные строчные
+                return word.charAt(0).toUpperCase() + word.slice(1);
+            }).join(' ');
+        }
+
+        // Колонки для отображения информации (динамически меняются для чая/кофе)
+        function getInfoColumns() {
+            if (currentCategory === 'tea') {
+                return [
+                    { key: 'territoryCode', display: 'Код территории', search: ['Код территории'] },
+                    { key: 'tp', display: 'ТП', search: ['ТП'] },
+                    { key: 'ttCode', display: 'Код ТТ', search: ['Код ТТ'] },
+                    { key: 'ttName', display: 'Название ТТ', search: ['Название ТТ'] },
+                    { key: 'address', display: 'Адрес', search: ['Адрес'] },
+                    { key: 'ttType', display: 'Тип ТТ', search: ['Тип ТТ'] },
+                    { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
+                    { key: 'plan', display: 'План MML Чай', search: ['План MML Чай', 'План  MML Чай'] },
+                    { key: 'factQty', display: 'Факт MML Чай (кол-во)', search: ['Факт MML Чай (кол-во)', 'Факт MML Чай <br>(кол-во)', 'Факт MML Чай<br>(кол-во)', 'Факт MML Чай', 'кол-во'] },
+                    { key: 'factPercent', display: 'Факт MML Чай%', search: ['Факт MML Чай%', 'Факт MML Чай %', 'Факт MML Чай<br>%', 'Факт MML Чай <br>%', 'MML Чай%', 'MML Чай %'] },
+                    { key: 'completion', display: 'Выполнение MML ЧАЙ', search: ['Выполнение MML ЧАЙ', 'Выполнение<br>MML ЧАЙ', 'Выполнение<br/>MML ЧАЙ', 'Выполнение MML'] },
+                    { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
+                ];
+            } else {
+                // Для кофе используем точные названия из Excel
+                return [
+                    { key: 'territoryCode', display: 'Код территории', search: ['Код территории'] },
+                    { key: 'tp', display: 'ТП', search: ['ТП'] },
+                    { key: 'ttCode', display: 'Код ТТ', search: ['Код ТТ'] },
+                    { key: 'ttName', display: 'Название ТТ', search: ['Название ТТ'] },
+                    { key: 'address', display: 'Адрес', search: ['Адрес'] },
+                    { key: 'ttType', display: 'Тип ТТ', search: ['Тип ТТ'] },
+                    { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
+                    { key: 'plan', display: 'План MML Кофе', search: ['План MML Кофе', 'План  MML Кофе', 'План<br>MML Кофе', 'План<br/>MML Кофе'] },
+                    { key: 'factQty', display: 'Факт MML кофе (кол-во)', search: ['Факт MML кофе (кол-во)', 'Факт MML кофе <br>(кол-во)', 'Факт MML кофе<br>(кол-во)', 'Факт MML кофе', 'кол-во'] },
+                    { key: 'factPercent', display: 'Факт MML кофе %', search: ['Факт MML кофе %', 'Факт MML кофе%', 'Факт MML кофе<br>%', 'Факт MML кофе <br>%', 'MML кофе %', 'MML кофе%'] },
+                    { key: 'completion', display: 'Выполнение MML КОФЕ', search: ['Выполнение MML КОФЕ', 'Выполнение<br>MML КОФЕ', 'Выполнение<br/>MML КОФЕ', 'Выполнение MML'] },
+                    { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
+                ];
+            }
+        }
+
+        // URL файла данных
+        const DATA_FILE_URL = 'https://raw.githubusercontent.com/Mayhelper/mayhelper/main/datamml.xlsx';
+        const CACHE_KEY = 'mml_data_cache';
+        const CACHE_DATE_KEY = 'mml_cache_date';
+        const CACHE_FILE_KEY = 'mml_file_cache';
+
+        // Функция получения даты в формате YYYY-MM-DD
+        function getDateString(date = new Date()) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // Функция проверки, нужно ли обновлять данные (другой день)
+        function shouldRefreshCache() {
+            try {
+                const cachedDate = localStorage.getItem(CACHE_DATE_KEY);
+                const today = getDateString();
+                return !cachedDate || cachedDate !== today;
+            } catch (e) {
+                return true; // При ошибке обновляем
+            }
+        }
+
+        // Функция кэширования данных
+        function saveToCache(fileArrayBuffer) {
+            try {
+                const today = getDateString();
+                const loadTimestamp = new Date().toLocaleString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
                 
-                // Делаем переход по URL
-                window.location.href = redirectUrl;
+                // Сохраняем обработанные данные для обеих категорий
+                const cacheData = {
+                    tea: {
+                        headers: teaHeaders,
+                        dataRows: teaDataRows,
+                        skuStartIndex: teaSkuStartIndex
+                    },
+                    coffee: {
+                        headers: coffeeHeaders,
+                        dataRows: coffeeDataRows,
+                        skuStartIndex: coffeeSkuStartIndex
+                    },
+                    loadDate: today,
+                    loadTimestamp: loadTimestamp
+                };
+                localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+                localStorage.setItem(CACHE_DATE_KEY, today);
                 
-                updateSaveStatus('success', 'Данные переданы в приложение. Файл будет создан автоматически.');
+                // Сохраняем файл для быстрой загрузки workbook (асинхронно)
+                if (fileArrayBuffer) {
+                    // Используем IndexedDB или просто сохраняем как base64
+                    try {
+                        const fileBlob = new Blob([fileArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        const reader = new FileReader();
+                        reader.onload = function() {
+                            try {
+                                localStorage.setItem(CACHE_FILE_KEY, reader.result);
+                            } catch (e) {
+                                // Если файл слишком большой для localStorage, просто не сохраняем
+                                console.warn('Файл слишком большой для кэширования');
+                            }
+                        };
+                        reader.readAsDataURL(fileBlob);
+                    } catch (e) {
+                        console.warn('Не удалось сохранить файл в кэш:', e);
+                    }
+                }
+            } catch (e) {
+                console.warn('Не удалось сохранить в кэш:', e);
+            }
+        }
+
+        // Функция получения данных из кэша
+        function getFromCache() {
+            try {
+                // Проверяем, нужно ли обновлять
+                if (shouldRefreshCache()) {
+                    return null;
+                }
+                
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (!cached) return null;
+                
+                const cacheData = JSON.parse(cached);
+                return cacheData;
+            } catch (e) {
+                console.warn('Ошибка чтения кэша:', e);
+                return null;
+            }
+        }
+
+        // Функция получения закэшированного файла
+        function getCachedFile() {
+            try {
+                if (shouldRefreshCache()) {
+                    return null;
+                }
+                return localStorage.getItem(CACHE_FILE_KEY);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Функция обновления прогресса загрузки
+        function updateProgress(percent, text) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressBarPercent = document.getElementById('progressBarPercent');
+            
+            if (progressBar) {
+                progressBar.style.width = percent + '%';
+            }
+            if (progressBarPercent) {
+                progressBarPercent.textContent = Math.round(percent) + '%';
+            }
+            if (progressText) {
+                const remaining = 100 - percent;
+                progressText.textContent = text || `Осталось ${remaining}%`;
+            }
+        }
+
+        // Функция загрузки файла с сервера
+        async function loadFileFromServer() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('errorMessage').style.display = 'none';
+                const loadDateInfo = document.getElementById('loadDateInfo');
+                loadDateInfo.style.display = 'none';
+                updateProgress(0, 'Осталось 100%');
+                
+                // Проверяем кэш - если данные загружены сегодня, используем их
+                updateProgress(10, 'Проверка кэша...');
+                const cachedData = getFromCache();
+                
+                if (cachedData && !shouldRefreshCache()) {
+                    // Используем данные из кэша
+                    if (cachedData.tea) {
+                        teaHeaders = cachedData.tea.headers;
+                        teaDataRows = cachedData.tea.dataRows;
+                        teaSkuStartIndex = cachedData.tea.skuStartIndex;
+                    }
+                    if (cachedData.coffee) {
+                        coffeeHeaders = cachedData.coffee.headers;
+                        coffeeDataRows = cachedData.coffee.dataRows;
+                        coffeeSkuStartIndex = cachedData.coffee.skuStartIndex;
+                    }
+                    
+                    // Загружаем файл для workbook (нужен для проверки стилей)
+                    updateProgress(30);
+                    const cachedFile = getCachedFile();
+                    let arrayBuffer;
+                    
+                    if (cachedFile) {
+                        // Используем закэшированный файл
+                        const base64Data = cachedFile.includes(',') ? cachedFile.split(',')[1] : cachedFile;
+                        const binaryString = atob(base64Data);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        arrayBuffer = bytes.buffer;
+                    } else {
+                        // Загружаем файл с сервера
+                        const response = await fetch(DATA_FILE_URL);
+                        if (!response.ok) {
+                            throw new Error(`Ошибка загрузки файла: ${response.status} ${response.statusText}`);
+                        }
+                        arrayBuffer = await response.arrayBuffer();
+                    }
+                    
+                    updateProgress(50);
+                    const data = new Uint8Array(arrayBuffer);
+                    workbook = XLSX.read(data, { 
+                        type: 'array',
+                        cellStyles: true
+                    });
+                    
+                    // Находим вкладки для чая и кофе
+                    const teaSheetName = 'MML чай без ПК';
+                    const coffeeSheetName = 'MML кофе';
+                    
+                    for (let i = 0; i < workbook.SheetNames.length; i++) {
+                        const sheetName = workbook.SheetNames[i];
+                        if (sheetName === teaSheetName || sheetName.includes('MML чай без ПК')) {
+                            teaWorksheet = workbook.Sheets[sheetName];
+                        }
+                        if (sheetName === coffeeSheetName || sheetName.includes('MML кофе')) {
+                            coffeeWorksheet = workbook.Sheets[sheetName];
+                        }
+                    }
+                    
+                    showFileInfo();
+                    document.getElementById('searchBtn').disabled = false;
+                    
+                    // Показываем дату загрузки и кнопку обновления
+                    loadDateInfo.textContent = `Данные загружены - ${cachedData.loadTimestamp}`;
+                    loadDateInfo.style.display = 'block';
+                    document.getElementById('refreshDataBtn').style.display = 'inline-block';
+                    document.getElementById('loading').classList.add('completed');
+                    updateProgress(100, 'Осталось 0%');
+                    return;
+                }
+                
+                // Загружаем файл с сервера (данные устарели или отсутствуют)
+                updateProgress(10);
+                const response = await fetch(DATA_FILE_URL, {
+                    cache: 'no-cache'
+                });
+                if (!response.ok) {
+                    throw new Error(`Ошибка загрузки файла: ${response.status} ${response.statusText}`);
+                }
+                
+                // Отслеживаем реальный прогресс загрузки
+                const contentLength = response.headers.get('content-length');
+                let arrayBuffer;
+                
+                if (contentLength) {
+                    const total = parseInt(contentLength, 10);
+                    const reader = response.body.getReader();
+                    const chunks = [];
+                    let receivedLength = 0;
+                    
+                    while (true) {
+                        const {done, value} = await reader.read();
+                        if (done) break;
+                        
+                        chunks.push(value);
+                        receivedLength += value.length;
+                        // Прогресс от 10% до 80% для загрузки файла
+                        const percent = Math.min(80, 10 + (receivedLength / total) * 70);
+                        updateProgress(percent);
+                    }
+                    
+                    // Объединяем все чанки
+                    const allChunks = new Uint8Array(receivedLength);
+                    let position = 0;
+                    for (const chunk of chunks) {
+                        allChunks.set(chunk, position);
+                        position += chunk.length;
+                    }
+                    arrayBuffer = allChunks.buffer;
+                } else {
+                    // Если размер неизвестен, загружаем с примерным прогрессом
+                    updateProgress(20);
+                    arrayBuffer = await response.arrayBuffer();
+                    updateProgress(80);
+                }
+                
+                const data = new Uint8Array(arrayBuffer);
+                
+                // Оптимизированное чтение файла - только необходимые опции
+                updateProgress(90);
+                workbook = XLSX.read(data, { 
+                    type: 'array',
+                    cellStyles: true,  // Сохраняем стили для определения заливки
+                    dense: false      // Используем sparse для экономии памяти
+                });
+                
+                // Ищем вкладки для чая и кофе
+                updateProgress(92);
+                const teaSheetName = 'MML чай без ПК';
+                const coffeeSheetName = 'MML кофе';
+                let teaSheet = null;
+                let coffeeSheet = null;
+                
+                // Проверяем все доступные листы
+                for (let i = 0; i < workbook.SheetNames.length; i++) {
+                    const sheetName = workbook.SheetNames[i];
+                    if (sheetName === teaSheetName || sheetName.includes('MML чай без ПК')) {
+                        teaSheet = workbook.Sheets[sheetName];
+                        console.log('Найдена вкладка ЧАЙ:', sheetName);
+                    }
+                    if (sheetName === coffeeSheetName || sheetName.includes('MML кофе')) {
+                        coffeeSheet = workbook.Sheets[sheetName];
+                        console.log('Найдена вкладка КОФЕ:', sheetName);
+                    }
+                }
+                
+                // Если не нашли вкладки, предупреждаем
+                if (!teaSheet) {
+                    console.warn(`Вкладка "${teaSheetName}" не найдена.`);
+                }
+                if (!coffeeSheet) {
+                    console.warn(`Вкладка "${coffeeSheetName}" не найдена.`);
+                }
+                
+                // Обрабатываем данные по чаю
+                if (teaSheet) {
+                    currentCategory = 'tea';
+                    await processSheetData(teaSheet, updateProgress, 94, 97);
+                }
+                
+                // Обрабатываем данные по кофе
+                if (coffeeSheet) {
+                    currentCategory = 'coffee';
+                    await processSheetData(coffeeSheet, updateProgress, 97, 99);
+                }
+                
+                // Возвращаемся к чаю по умолчанию
+                currentCategory = 'tea';
+                
+                // Сохраняем данные в кэш
+                saveToCache(arrayBuffer);
+                
+                // Показываем информацию о файле
+                showFileInfo();
+                
+                // Активируем кнопку поиска
+                document.getElementById('searchBtn').disabled = false;
+                
+                        // Показываем дату загрузки и кнопку обновления
+                        const loadTimestamp = new Date().toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        loadDateInfo.textContent = `Данные загружены - ${loadTimestamp}`;
+                        loadDateInfo.style.display = 'block';
+                        document.getElementById('refreshDataBtn').style.display = 'inline-block';
+                        document.getElementById('loading').classList.add('completed');
+                        // Скрываем спиннер после загрузки
+                        const spinnerContainer = document.querySelector('.loading-spinner-container');
+                        if (spinnerContainer) {
+                            spinnerContainer.style.display = 'none';
+                        }
+                
+                // Завершение загрузки
+                updateProgress(100, 'Осталось 0%');
+                
+            } catch (error) {
+                console.error('Ошибка при загрузке файла:', error);
+                showError('Ошибка при загрузке файла: ' + error.message);
+                updateProgress(0, 'Ошибка загрузки');
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Обработчик кнопки обновления данных
+        document.getElementById('refreshDataBtn').addEventListener('click', function() {
+            // Очищаем кэш для принудительного обновления
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(CACHE_DATE_KEY);
+            localStorage.removeItem(CACHE_FILE_KEY);
+            
+            // Скрываем кнопку и дату
+            this.style.display = 'none';
+            document.getElementById('loadDateInfo').style.display = 'none';
+            document.getElementById('loading').classList.remove('completed');
+            
+            // Перезагружаем данные
+            loadFileFromServer();
+        });
+
+        // Загружаем файл при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFileFromServer();
+        });
+
+        // Функция обработки данных листа (чай или кофе)
+        async function processSheetData(sheet, updateProgress, startProgress, endProgress) {
+            updateProgress(startProgress);
+            const sheetData = XLSX.utils.sheet_to_json(sheet, { 
+                header: 1,
+                raw: false,
+                defval: ''
+            });
+            
+            // Находим строку с заголовками (строка 4, индекс 3)
+            if (sheetData.length >= 4) {
+                const headers = sheetData[3]; // Строка 4 (индекс 3)
+                
+                // Находим индекс столбца "Включать в расчёт SDO"
+                const sdoIndex = findColumnIndex(['Включать в расчёт SDO'], headers);
+                
+                if (sdoIndex !== -1) {
+                    const skuStartIndex = sdoIndex + 1;
+                    
+                    // Собираем строки с данными
+                    const dataRows = [];
+                    for (let i = 4; i < sheetData.length; i++) {
+                        const row = sheetData[i];
+                        if (row && row.length > 0 && row.some(cell => cell !== '')) {
+                            dataRows.push(row);
+                        }
+                    }
+                    
+                    // Сохраняем данные для активной категории
+                    setActiveData(sheet, headers, dataRows, skuStartIndex);
+                    
+                    console.log(`Категория: ${currentCategory.toUpperCase()}, найдено строк: ${dataRows.length}, SKU начинаются с колонки: ${skuStartIndex}`);
+                } else {
+                    console.warn(`Не удалось найти колонку "Включать в расчёт SDO" для категории ${currentCategory}`);
+                }
             }
             
-            // Показываем сообщение для пользователя
+            updateProgress(endProgress);
+        }
+
+        // Функция для поиска индекса колонки (с кэшированием)
+        function findColumnIndex(searchTerms, headersArray = null) {
+            const activeHeaders = headersArray || getActiveData().headers;
+            
+            // Создаем ключ для кэша (включая категорию для уникальности)
+            const cacheKey = `${currentCategory}|${searchTerms.join('|')}`;
+            
+            // Проверяем кэш
+            if (columnIndexCache.has(cacheKey)) {
+                return columnIndexCache.get(cacheKey);
+            }
+            
+            // Ищем колонку
+            for (let i = 0; i < activeHeaders.length; i++) {
+                let header = activeHeaders[i] ? activeHeaders[i].toString().trim() : '';
+                // Убираем HTML теги и лишние пробелы для более точного поиска
+                header = header.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim();
+                
+                for (const term of searchTerms) {
+                    // Также убираем HTML теги из искомого термина
+                    const cleanTerm = term.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim();
+                    if (header.includes(cleanTerm) || cleanTerm.includes(header)) {
+                        // Сохраняем в кэш
+                        columnIndexCache.set(cacheKey, i);
+                        return i;
+                    }
+                }
+            }
+            
+            // Сохраняем -1 в кэш, если не нашли
+            columnIndexCache.set(cacheKey, -1);
+            return -1;
+        }
+
+        // Поиск по коду ТТ
+        document.getElementById('searchBtn').addEventListener('click', searchByTT);
+        
+        // Преобразование ввода в верхний регистр
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function(e) {
+            const cursorPosition = this.selectionStart;
+            this.value = this.value.toUpperCase();
+            this.setSelectionRange(cursorPosition, cursorPosition);
+        });
+        
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchByTT();
+            }
+        });
+
+        function searchByTT() {
+            const searchCode = document.getElementById('searchInput').value.trim();
+            if (!searchCode) {
+                showError('Введите код ТТ для поиска');
+                return;
+            }
+
+            if (!workbook) {
+                showError('Файл еще загружается, подождите...');
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+
+            const { headers, dataRows } = getActiveData();
+
+            // Находим индекс колонки "Код ТТ"
+            const ttCodeIndex = findColumnIndex(['Код ТТ'], headers);
+            if (ttCodeIndex === -1) {
+                showError('Не найдена колонка "Код ТТ" в файле');
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+
+            // Ищем строку с нужным кодом ТТ
+            let foundRowIndex = -1;
+            currentRowData = null;
+            
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
+                if (row[ttCodeIndex] && row[ttCodeIndex].toString().trim() === searchCode) {
+                    foundRowIndex = i;
+                    currentRowData = row;
+                    break;
+                }
+            }
+
+            if (foundRowIndex === -1 || !currentRowData) {
+                document.getElementById('resultsSection').style.display = 'none';
+                document.getElementById('noResults').style.display = 'block';
+                document.getElementById('loading').style.display = 'none';
+                return;
+            }
+
+            // Отображаем результаты
             setTimeout(() => {
-                updateSaveStatus('info', 'Если приложение не отреагировало, убедитесь, что оно имеет доступ к файлам');
-            }, 2000);
+                displayResults(foundRowIndex);
+                document.getElementById('loading').style.display = 'none';
+            }, 100);
+        }
+
+        function displayResults(rowIndex) {
+            document.getElementById('noResults').style.display = 'none';
             
-        } else {
-            // РЕЖИМ БРАУЗЕРА - СКАЧИВАЕМ ФАЙЛ
+            // Заполняем информацию о торговой точке
+            displayTTInfo();
             
-            // Создаем Blob и ссылку для скачивания
-            const blob = new Blob([buffer], { 
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            // Обновляем стили в зависимости от категории
+            const ttInfo = document.querySelector('.tt-info');
+            const resultsCount = document.getElementById('resultsCount');
+            if (currentCategory === 'coffee') {
+                if (ttInfo) {
+                    ttInfo.classList.add('coffee-active');
+                }
+                if (resultsCount) {
+                    resultsCount.classList.add('coffee-active');
+                }
+            } else {
+                if (ttInfo) {
+                    ttInfo.classList.remove('coffee-active');
+                }
+                if (resultsCount) {
+                    resultsCount.classList.remove('coffee-active');
+                }
+            }
+            
+            // Собираем данные SKU
+            collectSkuData(rowIndex);
+            
+            // Применяем текущий фильтр
+            applyFilter(currentFilter);
+            
+            // Показываем секцию с результатами
+            document.getElementById('resultsSection').style.display = 'block';
+        }
+
+        function displayTTInfo() {
+            const ttInfoContent = document.getElementById('ttInfoContent');
+            const infoColumns = getInfoColumns(); // Получаем динамические колонки
+            const { headers } = getActiveData();
+            
+            // Собираем данные для всех колонок
+            const data = {};
+            let planValue = '—';
+            let factQtyValue = '—';
+            let factPercentValue = '—';
+            let factPercentNum = null;
+            
+            infoColumns.forEach(col => {
+                const index = findColumnIndex(col.search, headers);
+                let value = '—';
+                if (index !== -1 && currentRowData && currentRowData[index] !== undefined) {
+                    value = currentRowData[index].toString().trim();
+                    
+                    // Специальная обработка для процентов
+                    if (col.key === 'factPercent') {
+                        // Убираем знак $ в начале значения, если есть
+                        if (value && value !== '—' && value.startsWith('$')) {
+                            value = value.substring(1).trim();
+                        }
+                        // Если значение уже содержит %, оставляем как есть, иначе добавляем %
+                        if (value && value !== '—' && !value.includes('%')) {
+                            // Пытаемся преобразовать в число и добавить %
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                                factPercentNum = numValue;
+                                value = numValue + '%';
+                            } else {
+                                value = value + '%';
+                            }
+                        } else if (value && value !== '—' && value.includes('%')) {
+                            // Извлекаем число из строки с %
+                            const numValue = parseFloat(value.replace('%', '').trim());
+                            if (!isNaN(numValue)) {
+                                factPercentNum = numValue;
+                            }
+                        }
+                        factPercentValue = value;
+                    } else if (col.key === 'plan') {
+                        planValue = value;
+                    } else if (col.key === 'factQty') {
+                        factQtyValue = value;
+                    }
+                }
+                data[col.key] = value;
             });
-            const url = URL.createObjectURL(blob);
             
-            // Создаем ссылку и автоматически кликаем по ней
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = fileName;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Формируем HTML с плиточным дизайном
+            // Сначала компактные поля (Код ТТ, Тип ТТ, Канал ТТ) в одну строку
+            const compactFields = ['ttCode', 'ttType', 'ttChannel'];
+            let html = '<div class="info-grid-compact">';
+            compactFields.forEach(key => {
+                const col = infoColumns.find(c => c.key === key);
+                if (col) {
+                    html += `
+                        <div class="info-item">
+                            <span class="info-label">${col.display}</span>
+                            <span class="info-value">${data[col.key] || '—'}</span>
+                        </div>
+                    `;
+                }
+            });
+            html += '</div>';
             
-            // Освобождаем память через 1 минуту
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            // Остальные поля в обычной сетке
+            html += '<div class="info-grid">';
+            const regularColumns = infoColumns.filter(col => 
+                col.key !== 'plan' && 
+                col.key !== 'factQty' && 
+                col.key !== 'factPercent' &&
+                !compactFields.includes(col.key)
+            );
             
-            // Показываем кнопку для повторного скачивания
-            showDownloadButton(fileName);
+            regularColumns.forEach(col => {
+                html += `
+                    <div class="info-item">
+                        <span class="info-label">${col.display}</span>
+                        <span class="info-value">${data[col.key] || '—'}</span>
+                    </div>
+                `;
+            });
             
-            updateSaveStatus('success', `Файл "${fileName}" скачан успешно!`);
+            html += '</div>';
+            
+            // Блок с метриками MML в одну строку (компактный, как код ТТ, Тип ТТ, Канал ТТ)
+            html += '<div class="mml-metrics-compact">';
+            html += `
+                <div class="info-item">
+                    <span class="info-label">План MML</span>
+                    <span class="info-value">${planValue}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Факт MML</span>
+                    <span class="info-value">${factQtyValue}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Факт MML %</span>
+                    <span class="info-value ${factPercentNum !== null && factPercentNum < 80 ? 'low-percent' : ''}">${factPercentValue}</span>
+                </div>
+            `;
+            html += '</div>';
+            
+            ttInfoContent.innerHTML = html;
         }
-        
-    } catch (error) {
-        console.error('Ошибка при выгрузке в Excel:', error);
-        updateSaveStatus('error', `Ошибка при создании Excel файла: ${error.message}`);
-    }
-}
 
-// Функция для экранирования HTML (дополнительная защита)
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Функция для создания кнопки скачивания
-function showDownloadButton(fileName) {
-    const downloadContainer = document.getElementById('downloadContainer');
-    downloadContainer.textContent = '';
-    
-    const downloadBox = document.createElement('div');
-    downloadBox.className = 'download-box';
-    
-    const safeFileName = fileName || 'План адаптации.xlsx';
-    
-    // Создаем заголовок
-    const h3 = document.createElement('h3');
-    h3.textContent = '✅ Файл готов!';
-    downloadBox.appendChild(h3);
-    
-    // Создаем параграф с именем файла
-    const p = document.createElement('p');
-    const strong = document.createElement('strong');
-    strong.textContent = safeFileName;    p.appendChild(document.createTextNode('Файл '));
-    p.appendChild(strong);
-    p.appendChild(document.createTextNode(' скачан автоматически.'));
-    downloadBox.appendChild(p);
-    
-    // Создаем инструкции
-    const instructionsDiv = document.createElement('div');
-    instructionsDiv.className = 'instructions';
-    
-    const strongInst = document.createElement('strong');
-    strongInst.textContent = 'Если файл не скачался:';
-    instructionsDiv.appendChild(strongInst);
-    instructionsDiv.appendChild(document.createElement('br'));
-    
-    instructionsDiv.appendChild(document.createTextNode('1. Нажмите на кнопку ниже'));
-    instructionsDiv.appendChild(document.createElement('br'));
-    instructionsDiv.appendChild(document.createTextNode('2. Если файл открывается в браузере:'));
-    instructionsDiv.appendChild(document.createElement('br'));
-    
-    const androidText = document.createTextNode('   - На Android: нажмите три точки → "Скачать"');
-    instructionsDiv.appendChild(androidText);
-    instructionsDiv.appendChild(document.createElement('br'));
-    
-    const iosText = document.createTextNode('   - На iOS: нажмите "Поделиться" → "Сохранить в файлы"');
-    instructionsDiv.appendChild(iosText);
-    instructionsDiv.appendChild(document.createElement('br'));
-    
-    instructionsDiv.appendChild(document.createTextNode('3. Сохраните файл в нужную папку'));
-    downloadBox.appendChild(instructionsDiv);
-    
-    // Создаем кнопку
-    const downloadBtn = document.createElement('button');
-    downloadBtn.id = 'manualDownloadBtn';
-    downloadBtn.className = 'download-button';
-    downloadBtn.textContent = '⬇️ Скачать еще раз';
-    downloadBtn.addEventListener('click', exportToExcel);
-    downloadBox.appendChild(downloadBtn);
-    
-    downloadContainer.appendChild(downloadBox);
-    downloadContainer.classList.add('show');
-}
-
-// Обработчик для кнопки экспорта
-if (exportBtn) {
-    exportBtn.addEventListener('click', exportToExcel);
-}
-
-// Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
-    try {
-        // Сначала инициализируем таблицы
-        initTables();
-        
-        const today = new Date();
-        if (startDateInput) {
-            startDateInput.value = today.toISOString().split('T')[0];
-            calculateAdaptationPeriod();
+        function collectSkuData(rowIndex) {
+            allSkuData = [];
+            
+            const { worksheet, headers, dataRows, skuStartIndex } = getActiveData();
+            
+            if (skuStartIndex === null || !currentRowData) return;
+            
+            // Получаем диапазон ячеек из worksheet
+            const range = XLSX.utils.decode_range(worksheet['!ref']);
+            
+            // rowIndex - это индекс в массиве dataRows (начинается с 0)
+            // dataRows начинается с 5-й строки Excel (индекс 4 в sheetData, но строка 5 в Excel)
+            // Поэтому для encode_cell (который использует 0-based индексы) нужно: rowIndex + 4
+            const excelRowForEncode = rowIndex + 4;
+            
+            for (let col = skuStartIndex; col < headers.length; col++) {
+                const skuName = headers[col] ? headers[col].toString().trim() : '';
+                if (!skuName) continue;
+                
+                const cellValue = currentRowData[col] ? currentRowData[col].toString().trim() : '';
+                const hasPlus = cellValue.includes('+');
+                
+                // Проверяем наличие ЛЮБОЙ заливки (независимо от цвета)
+                let hasFill = false;
+                
+                // Получаем адрес ячейки в формате Excel (например, "A5")
+                // encode_cell использует 0-based индексы: r=0 это строка 1 в Excel
+                const cellAddress = XLSX.utils.encode_cell({r: excelRowForEncode, c: col});
+                const cell = worksheet[cellAddress];
+                
+                // Проверяем наличие заливки в ячейке - максимально простая проверка
+                if (cell && cell.s) {
+                    const style = cell.s;
+                    
+                    // Если есть объект fill (даже пустой), считаем что заливка есть
+                    // В Excel если ячейка залита, объект fill всегда присутствует в стилях
+                    if (style.fill) {
+                        hasFill = true;
+                    }
+                    
+                    // Альтернативная проверка через другие свойства стиля
+                    if (!hasFill && (style.bg || style.bgColor || style.backgroundColor)) {
+                        hasFill = true;
+                    }
+                }
+                
+                // Отладочная информация отключена для ускорения
+                // Раскомментируйте при необходимости отладки
+                // if (cell && cell.s && cell.s.fill) {
+                //     console.log(`Ячейка ${cellAddress} (${skuName}):`, { hasFill, value: cellValue });
+                // }
+                
+                allSkuData.push({
+                    name: skuName,
+                    value: cellValue,
+                    hasPlus: hasPlus,
+                    hasFill: hasFill,
+                    colIndex: col
+                });
+            }
         }
-        
-        checkOrientation();
-        
-        // Небольшая задержка для полной инициализации DOM
-        setTimeout(() => {
-            loadFileFromServer();
-        }, 100);
-    } catch (error) {
-        console.error('Ошибка при инициализации:', error);
-        console.error('Детали:', error.message, error.stack);
-        if (statusText) {
-            statusText.textContent = 'Ошибка инициализации страницы: ' + error.message;
+
+        function applyFilter(filterType) {
+            currentFilter = filterType;
+            const skuTableBody = document.getElementById('skuTableBody');
+            skuTableBody.innerHTML = '';
+            
+            // Обновляем активную кнопку фильтра
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active', 'coffee-active');
+                if (btn.dataset.filter === filterType) {
+                    btn.classList.add('active');
+                    // Добавляем класс coffee-active если активна категория кофе
+                    if (currentCategory === 'coffee') {
+                        btn.classList.add('coffee-active');
+                    }
+                }
+            });
+            
+            // Фильтруем данные
+            let filteredData = allSkuData;
+            let filterText = '';
+            
+            switch(filterType) {
+                case 'mml':
+                    filteredData = allSkuData.filter(sku => sku.hasFill);
+                    filterText = 'План MML';
+                    break;
+                case 'plus':
+                    filteredData = allSkuData.filter(sku => sku.hasPlus);
+                    filterText = 'Прокупленные MML';
+                    break;
+                default:
+                    filteredData = allSkuData.filter(sku => sku.hasFill);
+                    filterText = 'План MML';
+                    break;
+            }
+            
+            // Отображаем отфильтрованные данные
+            filteredData.forEach(sku => {
+                const row = document.createElement('tr');
+                
+                let fillStatus = 'Не плановый MML';
+                let fillStatusClass = 'status-no-fill';
+                
+                // Определяем, пустое ли значение (будет показан красный минус)
+                const isEmptyValue = !sku.value || sku.value.trim() === '';
+                
+                if (sku.hasFill) {
+                    fillStatus = 'Плановый MML';
+                    // Если значение пустое (будет показан красный минус), делаем статус красным
+                    if (isEmptyValue && !sku.hasPlus) {
+                        fillStatusClass = 'status-no-fill';
+                    } else {
+                        fillStatusClass = 'status-green-fill';
+                    }
+                }
+                
+                let valueText = sku.value || '';
+                if (sku.hasPlus) {
+                    valueText = '<span style="color: #28a745; font-weight: bold; font-size: 1.2em;">+</span>';
+                } else if (!valueText || valueText.trim() === '') {
+                    // Если значение пустое, показываем красный минус
+                    valueText = '<span style="color: #dc3545; font-weight: bold; font-size: 1.2em;">−</span>';
+                }
+                
+                // Преобразуем название SKU в Title Case
+                const formattedSkuName = toTitleCase(sku.name);
+                
+                row.innerHTML = `
+                    <td class="sku-name">${formattedSkuName}</td>
+                    <td>
+                        <span class="sku-status ${fillStatusClass}">
+                            <span class="status-icon"></span>
+                            ${fillStatus}
+                        </span>
+                    </td>
+                    <td>${valueText}</td>
+                `;
+                skuTableBody.appendChild(row);
+            });
+            
+            // Обновляем счетчик
+            document.getElementById('resultsCount').textContent = `${filteredData.length} SKU`;
         }
-        if (statusIcon) {
-            statusIcon.textContent = '❌';
-            statusIcon.classList.add('error');
+
+        // Обработчики для кнопок фильтра
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filterType = this.dataset.filter;
+                applyFilter(filterType);
+            });
+        });
+
+        function showFileInfo() {
+            const { worksheet } = getActiveData();
+            if (!worksheet) return;
+            
+            console.log('Worksheet keys:', Object.keys(worksheet).slice(0, 10));
+            
+            // Проверяем, есть ли у некоторых ячеек стили
+            for (let key in worksheet) {
+                if (key.startsWith('!')) continue;
+                const cell = worksheet[key];
+                if (cell && cell.s) {
+                    console.log('Ячейка с стилями:', key, cell);
+                    break;
+                }
+            }
         }
-    }
-});
+
+        // Обработчики переключения категорий (ЧАЙ/КОФЕ) - используем делегирование событий
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('category-tab')) {
+                const category = e.target.getAttribute('data-category');
+                
+                // Обновляем активную вкладку
+                document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // Переключаем категорию
+                currentCategory = category;
+                
+                // Обновляем стили в зависимости от категории
+                const ttInfo = document.querySelector('.tt-info');
+                const filterButtons = document.querySelectorAll('.filter-btn.active');
+                const resultsCount = document.getElementById('resultsCount');
+                
+                if (category === 'coffee') {
+                    // Для кофе - зеленые стили
+                    if (ttInfo) {
+                        ttInfo.classList.add('coffee-active');
+                    }
+                    if (resultsCount) {
+                        resultsCount.classList.add('coffee-active');
+                    }
+                    filterButtons.forEach(btn => {
+                        btn.classList.add('coffee-active');
+                    });
+                } else {
+                    // Для чая - синие стили (по умолчанию)
+                    if (ttInfo) {
+                        ttInfo.classList.remove('coffee-active');
+                    }
+                    if (resultsCount) {
+                        resultsCount.classList.remove('coffee-active');
+                    }
+                    filterButtons.forEach(btn => {
+                        btn.classList.remove('coffee-active');
+                    });
+                }
+                
+                // Очищаем кэш индексов колонок
+                columnIndexCache.clear();
+                
+                // Если есть загруженные данные, обновляем отображение
+                const searchCode = document.getElementById('searchInput').value.trim();
+                if (searchCode) {
+                    // Сначала находим индекс строки для текущей категории и обновляем currentRowData
+                    const { headers, dataRows } = getActiveData();
+                    const ttCodeIndex = findColumnIndex(['Код ТТ'], headers);
+                    if (ttCodeIndex !== -1) {
+                        let foundRowIndex = -1;
+                        for (let i = 0; i < dataRows.length; i++) {
+                            const row = dataRows[i];
+                            if (row[ttCodeIndex] && row[ttCodeIndex].toString().trim() === searchCode) {
+                                foundRowIndex = i;
+                                currentRowData = row; // Обновляем currentRowData для новой категории
+                                break;
+                            }
+                        }
+                        if (foundRowIndex !== -1) {
+                            // Теперь обновляем отображение с правильными данными
+                            displayTTInfo(); // Вызываем после обновления currentRowData
+                            collectSkuData(foundRowIndex);
+                            applyFilter(currentFilter);
+                        }
+                    }
+                }
+            }
+        });
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
 
