@@ -200,6 +200,11 @@
             padding: 5px 15px;
             border-radius: 20px;
             font-size: 0.9em;
+            transition: background-color 0.3s;
+        }
+
+        .results-count.coffee-active {
+            background: #2ecc71;
         }
 
         .tt-info {
@@ -208,6 +213,11 @@
             border-radius: 8px;
             margin-bottom: 20px;
             border-left: 4px solid #3498db;
+            transition: border-left-color 0.3s;
+        }
+
+        .tt-info.coffee-active {
+            border-left-color: #2ecc71;
         }
 
         .info-item {
@@ -514,6 +524,12 @@
             background: #3498db;
             color: white;
             border-color: #3498db;
+            transition: all 0.3s;
+        }
+
+        .filter-btn.active.coffee-active {
+            background: #2ecc71;
+            border-color: #2ecc71;
         }
 
         /* Вкладки для переключения ЧАЙ/КОФЕ */
@@ -873,7 +889,7 @@
                 { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
                 { key: 'plan', display: `План MML ${categoryLabel}`, search: [`План MML ${categoryLabel}`, `План  MML ${categoryLabel}`] },
                 { key: 'factQty', display: `Факт MML ${categoryLabel} (кол-во)`, search: [`Факт MML ${categoryLabel} (кол-во)`, `Факт MML ${categoryLabel} <br>(кол-во)`, `Факт MML ${categoryLabel}<br>(кол-во)`, `Факт MML ${categoryLabel}`, 'кол-во'] },
-                { key: 'factPercent', display: `Факт MML ${categoryLabel}%`, search: [`Факт MML ${categoryLabel}%`, `Факт MML ${categoryLabel} %`, `MML ${categoryLabel}%`] },
+                { key: 'factPercent', display: `Факт MML ${categoryLabel}%`, search: [`Факт MML ${categoryLabel}%`, `Факт MML ${categoryLabel} %`, `Факт MML ${categoryLabel}<br>%`, `Факт MML ${categoryLabel} <br>%`, `MML ${categoryLabel}%`, `MML ${categoryLabel} %`] },
                 { key: 'completion', display: `Выполнение MML ${categoryLabelUpper}`, search: [`Выполнение MML ${categoryLabelUpper}`, `Выполнение<br>MML ${categoryLabelUpper}`, `Выполнение<br/>MML ${categoryLabelUpper}`, 'Выполнение MML'] },
                 { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
             ];
@@ -1386,6 +1402,25 @@
             // Заполняем информацию о торговой точке
             displayTTInfo();
             
+            // Обновляем стили в зависимости от категории
+            const ttInfo = document.querySelector('.tt-info');
+            const resultsCount = document.getElementById('resultsCount');
+            if (currentCategory === 'coffee') {
+                if (ttInfo) {
+                    ttInfo.classList.add('coffee-active');
+                }
+                if (resultsCount) {
+                    resultsCount.classList.add('coffee-active');
+                }
+            } else {
+                if (ttInfo) {
+                    ttInfo.classList.remove('coffee-active');
+                }
+                if (resultsCount) {
+                    resultsCount.classList.remove('coffee-active');
+                }
+            }
+            
             // Собираем данные SKU
             collectSkuData(rowIndex);
             
@@ -1401,8 +1436,9 @@
             let html = '';
             const infoColumns = getInfoColumns(); // Получаем динамические колонки
             
+            const { headers } = getActiveData();
             infoColumns.forEach(col => {
-                const index = findColumnIndex(col.search);
+                const index = findColumnIndex(col.search, headers);
                 let value = '—';
                 if (index !== -1 && currentRowData && currentRowData[index] !== undefined) {
                     value = currentRowData[index].toString().trim();
@@ -1512,9 +1548,13 @@
             
             // Обновляем активную кнопку фильтра
             document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
+                btn.classList.remove('active', 'coffee-active');
                 if (btn.dataset.filter === filterType) {
                     btn.classList.add('active');
+                    // Добавляем класс coffee-active если активна категория кофе
+                    if (currentCategory === 'coffee') {
+                        btn.classList.add('coffee-active');
+                    }
                 }
             });
             
@@ -1621,6 +1661,35 @@
                 
                 // Переключаем категорию
                 currentCategory = category;
+                
+                // Обновляем стили в зависимости от категории
+                const ttInfo = document.querySelector('.tt-info');
+                const filterButtons = document.querySelectorAll('.filter-btn.active');
+                const resultsCount = document.getElementById('resultsCount');
+                
+                if (category === 'coffee') {
+                    // Для кофе - зеленые стили
+                    if (ttInfo) {
+                        ttInfo.classList.add('coffee-active');
+                    }
+                    if (resultsCount) {
+                        resultsCount.classList.add('coffee-active');
+                    }
+                    filterButtons.forEach(btn => {
+                        btn.classList.add('coffee-active');
+                    });
+                } else {
+                    // Для чая - синие стили (по умолчанию)
+                    if (ttInfo) {
+                        ttInfo.classList.remove('coffee-active');
+                    }
+                    if (resultsCount) {
+                        resultsCount.classList.remove('coffee-active');
+                    }
+                    filterButtons.forEach(btn => {
+                        btn.classList.remove('coffee-active');
+                    });
+                }
                 
                 // Очищаем кэш индексов колонок
                 columnIndexCache.clear();
