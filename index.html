@@ -229,32 +229,109 @@
             border-left-color: #2ecc71;
         }
 
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
         .info-item {
             display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
+            flex-direction: column;
+            padding: 12px;
             background: white;
-            border-radius: 4px;
+            border-radius: 8px;
             border: 1px solid #eaeaea;
-            margin-bottom: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+
+        .info-item:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
         }
 
         .info-label {
-            font-size: 0.85em;
+            font-size: 0.75em;
             color: #7f8c8d;
             font-weight: 500;
-            flex-shrink: 0;
-            margin-right: 10px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .info-value {
-            font-weight: 500;
+            font-weight: 600;
             color: #2c3e50;
-            font-size: 0.9em;
-            text-align: right;
+            font-size: 1em;
             word-break: break-word;
+        }
+
+        /* Специальный блок для метрик MML */
+        .mml-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #eaeaea;
+        }
+
+        .mml-metric {
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 8px;
+            border: 2px solid #3498db;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .mml-metric:hover {
+            border-color: #2980b9;
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .mml-metric.coffee-active {
+            border-color: #2ecc71;
+        }
+
+        .mml-metric.coffee-active:hover {
+            border-color: #27ae60;
+            box-shadow: 0 4px 8px rgba(46, 204, 113, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .mml-metric-label {
+            font-size: 0.7em;
+            color: #7f8c8d;
+            font-weight: 500;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mml-metric-value {
+            font-weight: 700;
+            font-size: 1.3em;
+            color: #2c3e50;
+        }
+
+        .mml-metric-value.low-percent {
+            color: #e74c3c;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
         }
 
         .filter-options-container {
@@ -621,22 +698,40 @@
                 margin-bottom: 15px;
             }
 
+            .info-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
             .info-item {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 6px 10px;
-                margin-bottom: 4px;
+                padding: 10px;
             }
 
             .info-label {
-                font-size: 0.8em;
-                margin-bottom: 2px;
-                margin-right: 0;
+                font-size: 0.7em;
+                margin-bottom: 4px;
             }
 
             .info-value {
-                font-size: 0.85em;
-                text-align: left;
+                font-size: 0.9em;
+            }
+
+            .mml-metrics {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .mml-metric {
+                padding: 10px;
+            }
+
+            .mml-metric-label {
+                font-size: 0.65em;
+                margin-bottom: 6px;
+            }
+
+            .mml-metric-value {
+                font-size: 1.1em;
             }
 
             .filter-options-container {
@@ -1457,10 +1552,16 @@
 
         function displayTTInfo() {
             const ttInfoContent = document.getElementById('ttInfoContent');
-            let html = '';
             const infoColumns = getInfoColumns(); // Получаем динамические колонки
-            
             const { headers } = getActiveData();
+            
+            // Собираем данные для всех колонок
+            const data = {};
+            let planValue = '—';
+            let factQtyValue = '—';
+            let factPercentValue = '—';
+            let factPercentNum = null;
+            
             infoColumns.forEach(col => {
                 const index = findColumnIndex(col.search, headers);
                 let value = '—';
@@ -1478,27 +1579,64 @@
                             // Пытаемся преобразовать в число и добавить %
                             const numValue = parseFloat(value);
                             if (!isNaN(numValue)) {
+                                factPercentNum = numValue;
                                 value = numValue + '%';
                             } else {
                                 value = value + '%';
                             }
+                        } else if (value && value !== '—' && value.includes('%')) {
+                            // Извлекаем число из строки с %
+                            const numValue = parseFloat(value.replace('%', '').trim());
+                            if (!isNaN(numValue)) {
+                                factPercentNum = numValue;
+                            }
                         }
+                        factPercentValue = value;
+                    } else if (col.key === 'plan') {
+                        planValue = value;
+                    } else if (col.key === 'factQty') {
+                        factQtyValue = value;
                     }
                 }
-                
-                // Отладочная информация отключена для ускорения
-                // Раскомментируйте при необходимости отладки
-                // if (col.key === 'ttChannel' || col.key === 'factTeaQty' || col.key === 'completion' || col.key === 'factTeaPercent') {
-                //     console.log(`Колонка "${col.display}":`, { searchTerms: col.search, foundIndex: index, value: value });
-                // }
-                
+                data[col.key] = value;
+            });
+            
+            // Формируем HTML с плиточным дизайном
+            let html = '<div class="info-grid">';
+            
+            // Обычные поля (исключаем MML метрики)
+            const regularColumns = infoColumns.filter(col => 
+                col.key !== 'plan' && col.key !== 'factQty' && col.key !== 'factPercent'
+            );
+            
+            regularColumns.forEach(col => {
                 html += `
                     <div class="info-item">
-                        <span class="info-label">${col.display}:</span>
-                        <span class="info-value">${value}</span>
+                        <span class="info-label">${col.display}</span>
+                        <span class="info-value">${data[col.key] || '—'}</span>
                     </div>
                 `;
             });
+            
+            html += '</div>';
+            
+            // Блок с метриками MML в одну строку
+            html += '<div class="mml-metrics">';
+            html += `
+                <div class="mml-metric ${currentCategory === 'coffee' ? 'coffee-active' : ''}">
+                    <span class="mml-metric-label">План MML</span>
+                    <span class="mml-metric-value">${planValue}</span>
+                </div>
+                <div class="mml-metric ${currentCategory === 'coffee' ? 'coffee-active' : ''}">
+                    <span class="mml-metric-label">Факт MML</span>
+                    <span class="mml-metric-value">${factQtyValue}</span>
+                </div>
+                <div class="mml-metric ${currentCategory === 'coffee' ? 'coffee-active' : ''}">
+                    <span class="mml-metric-label">Факт MML %</span>
+                    <span class="mml-metric-value ${factPercentNum !== null && factPercentNum < 80 ? 'low-percent' : ''}">${factPercentValue}</span>
+                </div>
+            `;
+            html += '</div>';
             
             ttInfoContent.innerHTML = html;
         }
