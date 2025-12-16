@@ -496,79 +496,59 @@
             margin: 0 auto 15px;
         }
 
-        .progress-bar-container {
-            width: 33.33%;
-            max-width: 300px;
+        .progress-wrapper {
+            width: 100%;
+            max-width: 100%;
             margin: 15px auto 5px auto;
-            background-color: #f3f3f3;
-            border-radius: 8px;
-            overflow: hidden;
-            height: 20px;
-            position: relative;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #e3f2fd, #90caf9, #64b5f6, #42a5f5, #1976d2, #1565c0);
-            width: 0%;
-            transition: width 0.3s ease;
-            position: relative;
-            overflow: visible;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            gap: 8px;
         }
 
         .progress-bar-percent {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-weight: 600;
-            font-size: 0.75em;
-            z-index: 2;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-            white-space: nowrap;
-            width: 100%;
             text-align: center;
+            color: #2c3e50;
+            font-weight: 700;
+            font-size: 1.1em;
+            margin-bottom: 5px;
         }
 
-        .progress-bar::after {
-            content: '';
+        .progress-bar-container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            background-color: #f3f3f3;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 30px;
+            position: relative;
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+        }
+
+        .progress-bar {
+            display: flex;
+            gap: 4px;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
             position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(255, 255, 255, 0.3),
-                transparent
-            );
-            animation: shimmer 2s infinite;
+            left: 4px;
+            top: 4px;
+            bottom: 4px;
         }
 
-        @keyframes shimmer {
-            0% {
-                transform: translateX(-100%);
-            }
-            100% {
-                transform: translateX(100%);
-            }
+        .progress-square {
+            width: 22px;
+            height: 100%;
+            border-radius: 4px;
+            flex-shrink: 0;
         }
 
         .progress-text {
-            position: absolute;
-            width: 100%;
-            text-align: center;
-            line-height: 20px;
-            color: #2c3e50;
-            font-weight: 500;
-            font-size: 0.85em;
-            z-index: 1;
-            pointer-events: none;
+            display: none;
         }
 
         .progress-label {
@@ -883,6 +863,19 @@
                 padding: 10px 20px;
                 font-size: 1em;
             }
+
+            .progress-wrapper {
+                width: 100%;
+            }
+
+            .progress-bar-container {
+                width: 100%;
+                height: 30px;
+            }
+
+            .progress-bar-percent {
+                font-size: 1em;
+            }
         }
     </style>
 </head>
@@ -904,11 +897,11 @@
             </div>
             <div id="errorMessage" class="error-message"></div>
             <div id="loading" class="loading">
-                <div class="progress-bar-container">
-                    <div class="progress-bar" id="progressBar">
-                        <span class="progress-bar-percent" id="progressBarPercent">0%</span>
+                <div class="progress-wrapper">
+                    <div class="progress-bar-percent" id="progressBarPercent">0%</div>
+                    <div class="progress-bar-container" id="progressBarContainer">
+                        <div class="progress-bar" id="progressBar"></div>
                     </div>
-                    <div class="progress-text" id="progressText">Осталось 100%</div>
                 </div>
                 <div class="loading-spinner-container">
                     <div class="loading-spinner-small"></div>
@@ -1199,18 +1192,56 @@
         // Функция обновления прогресса загрузки
         function updateProgress(percent, text) {
             const progressBar = document.getElementById('progressBar');
-            const progressText = document.getElementById('progressText');
             const progressBarPercent = document.getElementById('progressBarPercent');
+            const progressBarContainer = document.getElementById('progressBarContainer');
             
-            if (progressBar) {
-                progressBar.style.width = percent + '%';
-            }
             if (progressBarPercent) {
                 progressBarPercent.textContent = Math.round(percent) + '%';
             }
-            if (progressText) {
-                const remaining = 100 - percent;
-                progressText.textContent = text || `Осталось ${remaining}%`;
+            
+            if (progressBar && progressBarContainer) {
+                // Вычисляем количество квадратиков
+                const containerWidth = progressBarContainer.offsetWidth - 8; // минус padding
+                const squareWidth = 22; // ширина квадратика
+                const gap = 4; // отступ между квадратиками
+                const maxSquares = Math.floor((containerWidth + gap) / (squareWidth + gap));
+                
+                // Вычисляем сколько квадратиков должно быть заполнено
+                const filledSquares = Math.floor((percent / 100) * maxSquares);
+                
+                // Цвета от светло-синего до темно-синего
+                const colors = [
+                    '#e3f2fd', // светло-синий
+                    '#bbdefb',
+                    '#90caf9',
+                    '#64b5f6',
+                    '#42a5f5',
+                    '#2196f3',
+                    '#1e88e5',
+                    '#1976d2',
+                    '#1565c0', // темно-синий
+                    '#0d47a1'
+                ];
+                
+                // Очищаем предыдущие квадратики
+                progressBar.innerHTML = '';
+                
+                // Создаем квадратики с разными цветами
+                for (let i = 0; i < filledSquares; i++) {
+                    const square = document.createElement('div');
+                    square.className = 'progress-square';
+                    // Вычисляем индекс цвета на основе позиции квадратика
+                    const colorIndex = Math.floor((i / maxSquares) * (colors.length - 1));
+                    square.style.backgroundColor = colors[colorIndex];
+                    progressBar.appendChild(square);
+                }
+                
+                // Устанавливаем ширину прогресс-бара
+                if (filledSquares > 0) {
+                    progressBar.style.width = (filledSquares * (squareWidth + gap) - gap) + 'px';
+                } else {
+                    progressBar.style.width = '0px';
+                }
             }
         }
 
@@ -1246,32 +1277,25 @@
 
         // Функция для смены сообщений загрузки
         function startLoadingMessages() {
-            const progressLabel = document.querySelector('.progress-label');
-            if (!progressLabel) return;
-            
-            currentMessageIndex = 0;
-            progressLabel.textContent = loadingMessages[currentMessageIndex];
-            
             // Очищаем предыдущий интервал, если есть
             if (loadingMessageInterval) {
                 clearInterval(loadingMessageInterval);
             }
             
+            currentMessageIndex = 0;
+            const progressLabel = document.querySelector('.progress-label');
+            if (progressLabel) {
+                progressLabel.textContent = loadingMessages[currentMessageIndex];
+            }
+            
             // Меняем сообщение каждые 2 секунды
             loadingMessageInterval = setInterval(() => {
                 currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
-                if (progressLabel) {
-                    progressLabel.textContent = loadingMessages[currentMessageIndex];
+                const label = document.querySelector('.progress-label');
+                if (label) {
+                    label.textContent = loadingMessages[currentMessageIndex];
                 }
             }, 2000);
-        }
-
-        // Функция для остановки смены сообщений
-        function stopLoadingMessages() {
-            if (loadingMessageInterval) {
-                clearInterval(loadingMessageInterval);
-                loadingMessageInterval = null;
-            }
         }
 
         // Функция загрузки файла с сервера
