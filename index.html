@@ -236,6 +236,13 @@
             margin-bottom: 15px;
         }
 
+        .info-grid-compact {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
         .info-item {
             display: flex;
             flex-direction: column;
@@ -698,9 +705,14 @@
                 margin-bottom: 15px;
             }
 
-            .info-grid {
+            .info-grid,
+            .info-grid-compact {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 8px;
+            }
+
+            .info-grid-compact {
+                grid-template-columns: repeat(3, 1fr);
             }
 
             .info-item {
@@ -1602,11 +1614,29 @@
             });
             
             // Формируем HTML с плиточным дизайном
-            let html = '<div class="info-grid">';
+            // Сначала компактные поля (Код ТТ, Тип ТТ, Канал ТТ) в одну строку
+            const compactFields = ['ttCode', 'ttType', 'ttChannel'];
+            let html = '<div class="info-grid-compact">';
+            compactFields.forEach(key => {
+                const col = infoColumns.find(c => c.key === key);
+                if (col) {
+                    html += `
+                        <div class="info-item">
+                            <span class="info-label">${col.display}</span>
+                            <span class="info-value">${data[col.key] || '—'}</span>
+                        </div>
+                    `;
+                }
+            });
+            html += '</div>';
             
-            // Обычные поля (исключаем MML метрики)
+            // Остальные поля в обычной сетке
+            html += '<div class="info-grid">';
             const regularColumns = infoColumns.filter(col => 
-                col.key !== 'plan' && col.key !== 'factQty' && col.key !== 'factPercent'
+                col.key !== 'plan' && 
+                col.key !== 'factQty' && 
+                col.key !== 'factPercent' &&
+                !compactFields.includes(col.key)
             );
             
             regularColumns.forEach(col => {
