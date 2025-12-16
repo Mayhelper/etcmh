@@ -350,6 +350,10 @@
             color: #3498db;
         }
 
+        .loading.completed {
+            display: block;
+        }
+
         .loading-spinner {
             border: 3px solid #f3f3f3;
             border-top: 3px solid #3498db;
@@ -358,6 +362,119 @@
             height: 30px;
             animation: spin 1s linear infinite;
             margin: 0 auto 15px;
+        }
+
+        .progress-bar-container {
+            width: 33.33%;
+            max-width: 300px;
+            margin: 15px auto 5px auto;
+            background-color: #f3f3f3;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 20px;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .progress-bar-percent {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: 600;
+            font-size: 0.75em;
+            z-index: 2;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+            width: 100%;
+            text-align: center;
+        }
+
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .progress-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            line-height: 20px;
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 0.85em;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .progress-label {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.85em;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+
+        .load-date-info {
+            text-align: center;
+            color: #27ae60;
+            font-size: 0.85em;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        .refresh-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            margin-top: 10px;
+            transition: background 0.3s;
+            display: inline-block;
+        }
+
+        .refresh-btn:hover {
+            background: #2980b9;
+        }
+
+        .loading.completed {
+            padding: 20px;
         }
 
         @keyframes spin {
@@ -548,8 +665,17 @@
             </div>
             <div id="errorMessage" class="error-message"></div>
             <div id="loading" class="loading">
-                <div class="loading-spinner"></div>
-                <p>Анализирую заливку ячеек...</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar">
+                        <span class="progress-bar-percent" id="progressBarPercent">0%</span>
+                    </div>
+                    <div class="progress-text" id="progressText">Осталось 100%</div>
+                </div>
+                <div class="progress-label">Загрузка данных</div>
+                <div id="loadDateInfo" class="load-date-info" style="display: none;"></div>
+                <div style="text-align: center; margin-top: 10px;">
+                    <button id="refreshDataBtn" class="refresh-btn" style="display: none;">Обновить данные</button>
+                </div>
             </div>
         </div>
 
@@ -616,6 +742,9 @@
         let currentFilter = 'mml';
         let currentRowData = null;
         let allSkuData = [];
+        
+        // Кэш для индексов колонок (ускоряет поиск)
+        const columnIndexCache = new Map();
 
         // Функция для преобразования текста в Title Case (каждое слово с заглавной буквы)
         function toTitleCase(str) {
@@ -646,35 +775,278 @@
 
         // URL файла данных
         const DATA_FILE_URL = 'https://raw.githubusercontent.com/Mayhelper/mayhelper/main/datamml.xlsx';
+        const CACHE_KEY = 'mml_data_cache';
+        const CACHE_DATE_KEY = 'mml_cache_date';
+        const CACHE_FILE_KEY = 'mml_file_cache';
+
+        // Функция получения даты в формате YYYY-MM-DD
+        function getDateString(date = new Date()) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // Функция проверки, нужно ли обновлять данные (другой день)
+        function shouldRefreshCache() {
+            try {
+                const cachedDate = localStorage.getItem(CACHE_DATE_KEY);
+                const today = getDateString();
+                return !cachedDate || cachedDate !== today;
+            } catch (e) {
+                return true; // При ошибке обновляем
+            }
+        }
+
+        // Функция кэширования данных
+        function saveToCache(headersData, dataRowsData, skuStartIndexData, fileArrayBuffer) {
+            try {
+                const today = getDateString();
+                const loadTimestamp = new Date().toLocaleString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                // Сохраняем обработанные данные
+                const cacheData = {
+                    headers: headersData,
+                    dataRows: dataRowsData,
+                    skuStartIndex: skuStartIndexData,
+                    loadDate: today,
+                    loadTimestamp: loadTimestamp
+                };
+                localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+                localStorage.setItem(CACHE_DATE_KEY, today);
+                
+                // Сохраняем файл для быстрой загрузки workbook (асинхронно)
+                if (fileArrayBuffer) {
+                    // Используем IndexedDB или просто сохраняем как base64
+                    try {
+                        const fileBlob = new Blob([fileArrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        const reader = new FileReader();
+                        reader.onload = function() {
+                            try {
+                                localStorage.setItem(CACHE_FILE_KEY, reader.result);
+                            } catch (e) {
+                                // Если файл слишком большой для localStorage, просто не сохраняем
+                                console.warn('Файл слишком большой для кэширования');
+                            }
+                        };
+                        reader.readAsDataURL(fileBlob);
+                    } catch (e) {
+                        console.warn('Не удалось сохранить файл в кэш:', e);
+                    }
+                }
+            } catch (e) {
+                console.warn('Не удалось сохранить в кэш:', e);
+            }
+        }
+
+        // Функция получения данных из кэша
+        function getFromCache() {
+            try {
+                // Проверяем, нужно ли обновлять
+                if (shouldRefreshCache()) {
+                    return null;
+                }
+                
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (!cached) return null;
+                
+                const cacheData = JSON.parse(cached);
+                return cacheData;
+            } catch (e) {
+                console.warn('Ошибка чтения кэша:', e);
+                return null;
+            }
+        }
+
+        // Функция получения закэшированного файла
+        function getCachedFile() {
+            try {
+                if (shouldRefreshCache()) {
+                    return null;
+                }
+                return localStorage.getItem(CACHE_FILE_KEY);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Функция обновления прогресса загрузки
+        function updateProgress(percent, text) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressBarPercent = document.getElementById('progressBarPercent');
+            
+            if (progressBar) {
+                progressBar.style.width = percent + '%';
+            }
+            if (progressBarPercent) {
+                progressBarPercent.textContent = Math.round(percent) + '%';
+            }
+            if (progressText) {
+                const remaining = 100 - percent;
+                progressText.textContent = text || `Осталось ${remaining}%`;
+            }
+        }
 
         // Функция загрузки файла с сервера
         async function loadFileFromServer() {
             try {
                 document.getElementById('loading').style.display = 'block';
                 document.getElementById('errorMessage').style.display = 'none';
+                const loadDateInfo = document.getElementById('loadDateInfo');
+                loadDateInfo.style.display = 'none';
+                updateProgress(0, 'Осталось 100%');
                 
-                // Загружаем файл с сервера
-                const response = await fetch(DATA_FILE_URL);
+                // Проверяем кэш - если данные загружены сегодня, используем их
+                updateProgress(10, 'Проверка кэша...');
+                const cachedData = getFromCache();
+                
+                if (cachedData && !shouldRefreshCache()) {
+                    // Используем данные из кэша
+                    headers = cachedData.headers;
+                    dataRows = cachedData.dataRows;
+                    skuStartIndex = cachedData.skuStartIndex;
+                    
+                    // Загружаем файл для workbook (нужен для проверки стилей)
+                    updateProgress(30);
+                    const cachedFile = getCachedFile();
+                    let arrayBuffer;
+                    
+                    if (cachedFile) {
+                        // Используем закэшированный файл
+                        const base64Data = cachedFile.includes(',') ? cachedFile.split(',')[1] : cachedFile;
+                        const binaryString = atob(base64Data);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        arrayBuffer = bytes.buffer;
+                    } else {
+                        // Загружаем файл с сервера
+                        const response = await fetch(DATA_FILE_URL);
+                        if (!response.ok) {
+                            throw new Error(`Ошибка загрузки файла: ${response.status} ${response.statusText}`);
+                        }
+                        arrayBuffer = await response.arrayBuffer();
+                    }
+                    
+                    updateProgress(50);
+                    const data = new Uint8Array(arrayBuffer);
+                    workbook = XLSX.read(data, { 
+                        type: 'array',
+                        cellStyles: true
+                    });
+                    
+                    // Находим нужную вкладку
+                    const targetSheetName = 'MML чай без ПК';
+                    for (let i = 0; i < workbook.SheetNames.length; i++) {
+                        const sheetName = workbook.SheetNames[i];
+                        if (sheetName === targetSheetName || sheetName.includes('MML чай без ПК')) {
+                            worksheet = workbook.Sheets[sheetName];
+                            break;
+                        }
+                    }
+                    if (!worksheet) {
+                        worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    }
+                    
+                    showFileInfo();
+                    document.getElementById('searchBtn').disabled = false;
+                    
+                    // Показываем дату загрузки и кнопку обновления
+                    loadDateInfo.textContent = `Данные загружены - ${cachedData.loadTimestamp}`;
+                    loadDateInfo.style.display = 'block';
+                    document.getElementById('refreshDataBtn').style.display = 'inline-block';
+                    document.getElementById('loading').classList.add('completed');
+                    updateProgress(100, 'Осталось 0%');
+                    return;
+                }
+                
+                // Загружаем файл с сервера (данные устарели или отсутствуют)
+                updateProgress(10);
+                const response = await fetch(DATA_FILE_URL, {
+                    cache: 'no-cache'
+                });
                 if (!response.ok) {
                     throw new Error(`Ошибка загрузки файла: ${response.status} ${response.statusText}`);
                 }
                 
-                const arrayBuffer = await response.arrayBuffer();
+                // Отслеживаем реальный прогресс загрузки
+                const contentLength = response.headers.get('content-length');
+                let arrayBuffer;
+                
+                if (contentLength) {
+                    const total = parseInt(contentLength, 10);
+                    const reader = response.body.getReader();
+                    const chunks = [];
+                    let receivedLength = 0;
+                    
+                    while (true) {
+                        const {done, value} = await reader.read();
+                        if (done) break;
+                        
+                        chunks.push(value);
+                        receivedLength += value.length;
+                        // Прогресс от 10% до 80% для загрузки файла
+                        const percent = Math.min(80, 10 + (receivedLength / total) * 70);
+                        updateProgress(percent);
+                    }
+                    
+                    // Объединяем все чанки
+                    const allChunks = new Uint8Array(receivedLength);
+                    let position = 0;
+                    for (const chunk of chunks) {
+                        allChunks.set(chunk, position);
+                        position += chunk.length;
+                    }
+                    arrayBuffer = allChunks.buffer;
+                } else {
+                    // Если размер неизвестен, загружаем с примерным прогрессом
+                    updateProgress(20);
+                    arrayBuffer = await response.arrayBuffer();
+                    updateProgress(80);
+                }
+                
                 const data = new Uint8Array(arrayBuffer);
                 
-                // Пытаемся прочитать файл с опцией, которая может сохранить стили
+                // Оптимизированное чтение файла - только необходимые опции
+                updateProgress(90);
                 workbook = XLSX.read(data, { 
                     type: 'array',
-                    cellStyles: true,  // Попытка сохранить стили
-                    cellHTML: true     // Попытка сохранить HTML-форматирование
+                    cellStyles: true,  // Сохраняем стили для определения заливки
+                    dense: false      // Используем sparse для экономии памяти
                 });
                 
-                // Получаем данные с первого листа
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                worksheet = firstSheet;
+                // Ищем вкладку "MML чай без ПК"
+                updateProgress(92);
+                const targetSheetName = 'MML чай без ПК';
+                let targetSheet = null;
+                
+                // Проверяем все доступные листы
+                for (let i = 0; i < workbook.SheetNames.length; i++) {
+                    const sheetName = workbook.SheetNames[i];
+                    if (sheetName === targetSheetName || sheetName.includes('MML чай без ПК')) {
+                        targetSheet = workbook.Sheets[sheetName];
+                        console.log('Найдена вкладка:', sheetName);
+                        break;
+                    }
+                }
+                
+                // Если не нашли нужную вкладку, используем первую
+                if (!targetSheet) {
+                    console.warn(`Вкладка "${targetSheetName}" не найдена. Доступные вкладки:`, workbook.SheetNames);
+                    console.warn('Используется первая вкладка:', workbook.SheetNames[0]);
+                    targetSheet = workbook.Sheets[workbook.SheetNames[0]];
+                }
+                
+                worksheet = targetSheet;
                 
                 // Получаем данные в виде массива массивов
-                const sheetData = XLSX.utils.sheet_to_json(firstSheet, { 
+                updateProgress(94);
+                const sheetData = XLSX.utils.sheet_to_json(targetSheet, { 
                     header: 1,
                     raw: false,
                     defval: ''
@@ -685,6 +1057,7 @@
                     headers = sheetData[3]; // Строка 4 (индекс 3)
                     
                     // Находим индекс столбца "Включать в расчёт SDO"
+                    updateProgress(96);
                     const sdoIndex = findColumnIndex(['Включать в расчёт SDO']);
                     
                     if (sdoIndex !== -1) {
@@ -699,8 +1072,12 @@
                             }
                         }
                         
-                        console.log('Файл успешно загружен. Найдено строк:', dataRows.length);
-                        console.log('SKU начинаются с колонки:', skuStartIndex);
+                        // Логирование отключено для ускорения
+                        // console.log('Файл успешно загружен. Найдено строк:', dataRows.length);
+                        // console.log('SKU начинаются с колонки:', skuStartIndex);
+                        
+                        // Сохраняем данные в кэш
+                        saveToCache(headers, dataRows, skuStartIndex, arrayBuffer);
                         
                         // Показываем информацию о файле
                         showFileInfo();
@@ -708,29 +1085,72 @@
                         // Активируем кнопку поиска
                         document.getElementById('searchBtn').disabled = false;
                         
+                        // Показываем дату загрузки и кнопку обновления
+                        const loadTimestamp = new Date().toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                        const loadDateInfo = document.getElementById('loadDateInfo');
+                        loadDateInfo.textContent = `Данные загружены - ${loadTimestamp}`;
+                        loadDateInfo.style.display = 'block';
+                        document.getElementById('refreshDataBtn').style.display = 'inline-block';
+                        document.getElementById('loading').classList.add('completed');
+                        
+                        // Завершение загрузки
+                        updateProgress(100, 'Осталось 0%');
+                        
                     } else {
                         showError('Не удалось найти колонку "Включать в расчёт SDO"');
+                        document.getElementById('loading').style.display = 'none';
                     }
                 } else {
                     showError('Файл не содержит достаточно данных');
+                    document.getElementById('loading').style.display = 'none';
                 }
-                
-                document.getElementById('loading').style.display = 'none';
                 
             } catch (error) {
                 console.error('Ошибка при загрузке файла:', error);
                 showError('Ошибка при загрузке файла: ' + error.message);
+                updateProgress(0, 'Ошибка загрузки');
                 document.getElementById('loading').style.display = 'none';
             }
         }
+
+        // Обработчик кнопки обновления данных
+        document.getElementById('refreshDataBtn').addEventListener('click', function() {
+            // Очищаем кэш для принудительного обновления
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(CACHE_DATE_KEY);
+            localStorage.removeItem(CACHE_FILE_KEY);
+            
+            // Скрываем кнопку и дату
+            this.style.display = 'none';
+            document.getElementById('loadDateInfo').style.display = 'none';
+            document.getElementById('loading').classList.remove('completed');
+            
+            // Перезагружаем данные
+            loadFileFromServer();
+        });
 
         // Загружаем файл при загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
             loadFileFromServer();
         });
 
-        // Функция для поиска индекса колонки
+        // Функция для поиска индекса колонки (с кэшированием)
         function findColumnIndex(searchTerms) {
+            // Создаем ключ для кэша
+            const cacheKey = searchTerms.join('|');
+            
+            // Проверяем кэш
+            if (columnIndexCache.has(cacheKey)) {
+                return columnIndexCache.get(cacheKey);
+            }
+            
+            // Ищем колонку
             for (let i = 0; i < headers.length; i++) {
                 let header = headers[i] ? headers[i].toString().trim() : '';
                 // Убираем HTML теги и лишние пробелы для более точного поиска
@@ -740,10 +1160,15 @@
                     // Также убираем HTML теги из искомого термина
                     const cleanTerm = term.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim();
                     if (header.includes(cleanTerm) || cleanTerm.includes(header)) {
+                        // Сохраняем в кэш
+                        columnIndexCache.set(cacheKey, i);
                         return i;
                     }
                 }
             }
+            
+            // Сохраняем -1 в кэш, если не нашли
+            columnIndexCache.set(cacheKey, -1);
             return -1;
         }
 
@@ -858,15 +1283,11 @@
                     }
                 }
                 
-                // Отладочная информация для проблемных колонок
-                if (col.key === 'ttChannel' || col.key === 'factTeaQty' || col.key === 'completion' || col.key === 'factTeaPercent') {
-                    console.log(`Колонка "${col.display}":`, {
-                        searchTerms: col.search,
-                        foundIndex: index,
-                        value: value,
-                        headers: headers.slice(0, 30).map((h, i) => `${i}: ${h}`)
-                    });
-                }
+                // Отладочная информация отключена для ускорения
+                // Раскомментируйте при необходимости отладки
+                // if (col.key === 'ttChannel' || col.key === 'factTeaQty' || col.key === 'completion' || col.key === 'factTeaPercent') {
+                //     console.log(`Колонка "${col.display}":`, { searchTerms: col.search, foundIndex: index, value: value });
+                // }
                 
                 html += `
                     <div class="info-item">
@@ -923,23 +1344,11 @@
                     }
                 }
                 
-                // Отладочная информация - выводим для всех ячеек со стилями
-                if (cell && cell.s) {
-                    const hasFillStyle = !!cell.s.fill;
-                    if (hasFillStyle || hasFill) {
-                        console.log(`Ячейка ${cellAddress} (${skuName}):`, {
-                            hasFill: hasFill,
-                            hasStyle: true,
-                            hasFillStyle: hasFillStyle,
-                            fill: cell.s.fill,
-                            fillKeys: cell.s.fill ? Object.keys(cell.s.fill) : [],
-                            fillType: cell.s.fill ? typeof cell.s.fill : 'none',
-                            fillString: cell.s.fill ? JSON.stringify(cell.s.fill).substring(0, 200) : 'none',
-                            value: cellValue,
-                            hasPlus: hasPlus
-                        });
-                    }
-                }
+                // Отладочная информация отключена для ускорения
+                // Раскомментируйте при необходимости отладки
+                // if (cell && cell.s && cell.s.fill) {
+                //     console.log(`Ячейка ${cellAddress} (${skuName}):`, { hasFill, value: cellValue });
+                // }
                 
                 allSkuData.push({
                     name: skuName,
