@@ -418,12 +418,18 @@
 
         .sku-status {
             display: inline-flex;
+            flex-direction: row;
             align-items: center;
             gap: 8px;
             padding: 6px 12px;
             border-radius: 20px;
             font-size: 0.9em;
             font-weight: 500;
+        }
+        
+        .sku-status .status-icon {
+            flex-shrink: 0;
+            order: -1;
         }
 
         .status-green-fill {
@@ -438,10 +444,17 @@
             border: 1px solid #90caf9;
         }
 
+        .status-red-fill {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
         .status-icon {
             width: 12px;
             height: 12px;
             border-radius: 50%;
+            flex-shrink: 0;
         }
 
         .status-green-fill .status-icon {
@@ -449,6 +462,10 @@
         }
 
         .status-no-fill .status-icon {
+            background: #1976d2;
+        }
+
+        .status-red-fill .status-icon {
             background: #dc3545;
         }
 
@@ -551,7 +568,7 @@
 
         .progress-label {
             text-align: center;
-            color: #7f8c8d;
+            color: #90caf9;
             font-size: 0.85em;
             margin-top: 5px;
             margin-bottom: 10px;
@@ -598,6 +615,47 @@
 
         .refresh-btn:hover {
             background: #2980b9;
+        }
+
+        /* Кнопка "Вверх" */
+        .scroll-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: transparent;
+            border: 2px solid rgba(52, 152, 219, 0.5);
+            border-radius: 50%;
+            color: #3498db;
+            font-size: 24px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            opacity: 0.7;
+        }
+
+        .scroll-to-top:hover {
+            opacity: 1;
+            border-color: #3498db;
+            background: rgba(52, 152, 219, 0.1);
+        }
+
+        .scroll-to-top.show {
+            display: flex;
+        }
+
+        @media (max-width: 768px) {
+            .scroll-to-top {
+                width: 45px;
+                height: 45px;
+                bottom: 15px;
+                right: 15px;
+                font-size: 20px;
+            }
         }
 
         .loading.completed {
@@ -802,6 +860,8 @@
 
             .sku-status {
                 display: inline-flex;
+                flex-direction: row;
+                align-items: center;
                 flex-wrap: wrap;
                 word-break: normal;
                 overflow-wrap: break-word;
@@ -809,6 +869,13 @@
                 line-height: 1.3;
                 max-width: 100%;
                 text-align: center;
+                justify-content: center;
+            }
+            
+            .sku-status .status-icon {
+                order: -1;
+                margin-right: 4px;
+                flex-shrink: 0;
             }
             
             .results-header {
@@ -1330,10 +1397,10 @@
                 }
                 // Запускаем смену сообщений загрузки
                 startLoadingMessages();
-                updateProgress(0, 'Осталось 100%');
+                updateProgress(0);
                 
                 // Проверяем кэш - если данные загружены сегодня, используем их
-                updateProgress(10, 'Проверка кэша...');
+                updateProgress(10);
                 const cachedData = getFromCache();
                 
                 if (cachedData && !shouldRefreshCache()) {
@@ -1401,7 +1468,7 @@
                     loadDateInfo.style.display = 'block';
                     document.getElementById('refreshDataBtn').style.display = 'inline-block';
                     document.getElementById('loading').classList.add('completed');
-                    updateProgress(100, 'Осталось 0%');
+                    updateProgress(100);
                     return;
                 }
                 
@@ -1533,12 +1600,12 @@
                         stopLoadingMessages();
                 
                 // Завершение загрузки
-                updateProgress(100, 'Осталось 0%');
+                updateProgress(100);
                 
             } catch (error) {
                 console.error('Ошибка при загрузке файла:', error);
                 showError('Ошибка при загрузке файла: ' + error.message);
-                updateProgress(0, 'Ошибка загрузки');
+                updateProgress(0);
                 document.getElementById('loading').style.display = 'none';
             }
         }
@@ -1965,9 +2032,9 @@
                 
                 if (sku.hasFill) {
                     fillStatus = 'MML в плане';
-                    // Если значение пустое (будет показан красный минус), делаем статус синим
+                    // Если значение пустое (будет показан красный минус), делаем статус красным
                     if (isEmptyValue && !sku.hasPlus) {
-                        fillStatusClass = 'status-no-fill';
+                        fillStatusClass = 'status-red-fill';
                     } else {
                         fillStatusClass = 'status-green-fill';
                     }
@@ -2115,6 +2182,30 @@
                 errorDiv.style.display = 'none';
             }, 5000);
         }
+
+        // Кнопка "Вверх"
+        const scrollToTopBtn = document.createElement('button');
+        scrollToTopBtn.className = 'scroll-to-top';
+        scrollToTopBtn.innerHTML = '↑';
+        scrollToTopBtn.setAttribute('aria-label', 'Наверх');
+        document.body.appendChild(scrollToTopBtn);
+
+        // Показываем/скрываем кнопку при прокрутке
+        window.addEventListener('scroll', function() {
+            if (window.pageYOffset > 300) {
+                scrollToTopBtn.classList.add('show');
+            } else {
+                scrollToTopBtn.classList.remove('show');
+            }
+        });
+
+        // Прокрутка наверх при клике
+        scrollToTopBtn.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
     </script>
 </body>
 </html>
