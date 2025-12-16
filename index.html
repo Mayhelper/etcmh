@@ -403,6 +403,14 @@
             padding: 12px 15px;
         }
 
+        .sku-table td:last-child {
+            text-align: center;
+        }
+
+        .sku-table td:last-child {
+            text-align: center;
+        }
+
         .sku-name {
             font-weight: 500;
             color: #2c3e50;
@@ -501,7 +509,7 @@
 
         .progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, #e3f2fd, #90caf9, #64b5f6, #42a5f5);
+            background: linear-gradient(90deg, #e3f2fd, #90caf9, #64b5f6, #42a5f5, #1976d2, #1565c0);
             width: 0%;
             transition: width 0.3s ease;
             position: relative;
@@ -1179,6 +1187,15 @@
             }
         }
 
+        // Массив сообщений для загрузки
+        const loadingMessages = [
+            'Идет загрузка данных',
+            'Данных очень много, подождите пожалуйста',
+            'Осталось совсем немного'
+        ];
+        let currentMessageIndex = 0;
+        let loadingMessageInterval = null;
+
         // Функция обновления прогресса загрузки
         function updateProgress(percent, text) {
             const progressBar = document.getElementById('progressBar');
@@ -1197,6 +1214,66 @@
             }
         }
 
+        // Функция для смены сообщений загрузки
+        function startLoadingMessages() {
+            const progressLabel = document.querySelector('.progress-label');
+            if (!progressLabel) return;
+            
+            currentMessageIndex = 0;
+            progressLabel.textContent = loadingMessages[currentMessageIndex];
+            
+            // Очищаем предыдущий интервал, если есть
+            if (loadingMessageInterval) {
+                clearInterval(loadingMessageInterval);
+            }
+            
+            // Меняем сообщение каждые 2 секунды
+            loadingMessageInterval = setInterval(() => {
+                currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
+                if (progressLabel) {
+                    progressLabel.textContent = loadingMessages[currentMessageIndex];
+                }
+            }, 2000);
+        }
+
+        // Функция для остановки смены сообщений
+        function stopLoadingMessages() {
+            if (loadingMessageInterval) {
+                clearInterval(loadingMessageInterval);
+                loadingMessageInterval = null;
+            }
+        }
+
+        // Функция для смены сообщений загрузки
+        function startLoadingMessages() {
+            const progressLabel = document.querySelector('.progress-label');
+            if (!progressLabel) return;
+            
+            currentMessageIndex = 0;
+            progressLabel.textContent = loadingMessages[currentMessageIndex];
+            
+            // Очищаем предыдущий интервал, если есть
+            if (loadingMessageInterval) {
+                clearInterval(loadingMessageInterval);
+            }
+            
+            // Меняем сообщение каждые 2 секунды
+            loadingMessageInterval = setInterval(() => {
+                currentMessageIndex = (currentMessageIndex + 1) % loadingMessages.length;
+                if (progressLabel) {
+                    progressLabel.textContent = loadingMessages[currentMessageIndex];
+                }
+            }, 2000);
+        }
+
+        // Функция для остановки смены сообщений
+        function stopLoadingMessages() {
+            if (loadingMessageInterval) {
+                clearInterval(loadingMessageInterval);
+                loadingMessageInterval = null;
+            }
+        }
+
         // Функция загрузки файла с сервера
         async function loadFileFromServer() {
             try {
@@ -1204,6 +1281,13 @@
                 document.getElementById('errorMessage').style.display = 'none';
                 const loadDateInfo = document.getElementById('loadDateInfo');
                 loadDateInfo.style.display = 'none';
+                // Показываем спиннер при начале загрузки
+                const spinnerContainer = document.querySelector('.loading-spinner-container');
+                if (spinnerContainer) {
+                    spinnerContainer.style.display = 'flex';
+                }
+                // Запускаем смену сообщений загрузки
+                startLoadingMessages();
                 updateProgress(0, 'Осталось 100%');
                 
                 // Проверяем кэш - если данные загружены сегодня, используем их
@@ -1399,10 +1483,12 @@
                         document.getElementById('refreshDataBtn').style.display = 'inline-block';
                         document.getElementById('loading').classList.add('completed');
                         // Скрываем спиннер после загрузки
-                        const spinnerContainer = document.querySelector('.loading-spinner-container');
-                        if (spinnerContainer) {
-                            spinnerContainer.style.display = 'none';
+                        const spinnerContainer2 = document.querySelector('.loading-spinner-container');
+                        if (spinnerContainer2) {
+                            spinnerContainer2.style.display = 'none';
                         }
+                        // Останавливаем смену сообщений
+                        stopLoadingMessages();
                 
                 // Завершение загрузки
                 updateProgress(100, 'Осталось 0%');
@@ -1791,12 +1877,17 @@
             
             // Обновляем активную кнопку фильтра
             document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active', 'coffee-active');
+                btn.classList.remove('active', 'coffee-active', 'coffee-inactive');
                 if (btn.dataset.filter === filterType) {
                     btn.classList.add('active');
                     // Добавляем класс coffee-active если активна категория кофе
                     if (currentCategory === 'coffee') {
                         btn.classList.add('coffee-active');
+                    }
+                } else {
+                    // Для неактивных кнопок добавляем класс для цвета текста
+                    if (currentCategory === 'coffee') {
+                        btn.classList.add('coffee-inactive');
                     }
                 }
             });
@@ -1921,6 +2012,11 @@
                     filterButtons.forEach(btn => {
                         btn.classList.add('coffee-active');
                     });
+                    // Обновляем цвет неактивных кнопок фильтра
+                    document.querySelectorAll('.filter-btn:not(.active)').forEach(btn => {
+                        btn.classList.add('coffee-inactive');
+                        btn.classList.remove('coffee-active');
+                    });
                 } else {
                     // Для чая - синие стили (по умолчанию)
                     if (ttInfo) {
@@ -1931,6 +2027,10 @@
                     }
                     filterButtons.forEach(btn => {
                         btn.classList.remove('coffee-active');
+                    });
+                    // Убираем класс coffee-inactive для чая
+                    document.querySelectorAll('.filter-btn').forEach(btn => {
+                        btn.classList.remove('coffee-inactive');
                     });
                 }
                 
@@ -1976,4 +2076,3 @@
     </script>
 </body>
 </html>
-
