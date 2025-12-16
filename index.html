@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Анализатор MML отчетов - Фильтр по заливке</title>
     <style>
         * {
@@ -18,6 +18,15 @@
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
             padding: 20px;
+            touch-action: pan-x pan-y;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* Разрешаем выделение текста в полях ввода */
+        input, textarea {
+            -webkit-user-select: text;
+            user-select: text;
         }
 
         .container {
@@ -876,23 +885,38 @@
 
         // Колонки для отображения информации (динамически меняются для чая/кофе)
         function getInfoColumns() {
-            const categoryLabel = currentCategory === 'tea' ? 'Чай' : 'Кофе';
-            const categoryLabelUpper = currentCategory === 'tea' ? 'ЧАЙ' : 'КОФЕ';
-            
-            return [
-                { key: 'territoryCode', display: 'Код территории', search: ['Код территории'] },
-                { key: 'tp', display: 'ТП', search: ['ТП'] },
-                { key: 'ttCode', display: 'Код ТТ', search: ['Код ТТ'] },
-                { key: 'ttName', display: 'Название ТТ', search: ['Название ТТ'] },
-                { key: 'address', display: 'Адрес', search: ['Адрес'] },
-                { key: 'ttType', display: 'Тип ТТ', search: ['Тип ТТ'] },
-                { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
-                { key: 'plan', display: `План MML ${categoryLabel}`, search: [`План MML ${categoryLabel}`, `План  MML ${categoryLabel}`] },
-                { key: 'factQty', display: `Факт MML ${categoryLabel} (кол-во)`, search: [`Факт MML ${categoryLabel} (кол-во)`, `Факт MML ${categoryLabel} <br>(кол-во)`, `Факт MML ${categoryLabel}<br>(кол-во)`, `Факт MML ${categoryLabel}`, 'кол-во'] },
-                { key: 'factPercent', display: `Факт MML ${categoryLabel}%`, search: [`Факт MML ${categoryLabel}%`, `Факт MML ${categoryLabel} %`, `Факт MML ${categoryLabel}<br>%`, `Факт MML ${categoryLabel} <br>%`, `MML ${categoryLabel}%`, `MML ${categoryLabel} %`] },
-                { key: 'completion', display: `Выполнение MML ${categoryLabelUpper}`, search: [`Выполнение MML ${categoryLabelUpper}`, `Выполнение<br>MML ${categoryLabelUpper}`, `Выполнение<br/>MML ${categoryLabelUpper}`, 'Выполнение MML'] },
-                { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
-            ];
+            if (currentCategory === 'tea') {
+                return [
+                    { key: 'territoryCode', display: 'Код территории', search: ['Код территории'] },
+                    { key: 'tp', display: 'ТП', search: ['ТП'] },
+                    { key: 'ttCode', display: 'Код ТТ', search: ['Код ТТ'] },
+                    { key: 'ttName', display: 'Название ТТ', search: ['Название ТТ'] },
+                    { key: 'address', display: 'Адрес', search: ['Адрес'] },
+                    { key: 'ttType', display: 'Тип ТТ', search: ['Тип ТТ'] },
+                    { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
+                    { key: 'plan', display: 'План MML Чай', search: ['План MML Чай', 'План  MML Чай'] },
+                    { key: 'factQty', display: 'Факт MML Чай (кол-во)', search: ['Факт MML Чай (кол-во)', 'Факт MML Чай <br>(кол-во)', 'Факт MML Чай<br>(кол-во)', 'Факт MML Чай', 'кол-во'] },
+                    { key: 'factPercent', display: 'Факт MML Чай%', search: ['Факт MML Чай%', 'Факт MML Чай %', 'Факт MML Чай<br>%', 'Факт MML Чай <br>%', 'MML Чай%', 'MML Чай %'] },
+                    { key: 'completion', display: 'Выполнение MML ЧАЙ', search: ['Выполнение MML ЧАЙ', 'Выполнение<br>MML ЧАЙ', 'Выполнение<br/>MML ЧАЙ', 'Выполнение MML'] },
+                    { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
+                ];
+            } else {
+                // Для кофе используем точные названия из Excel
+                return [
+                    { key: 'territoryCode', display: 'Код территории', search: ['Код территории'] },
+                    { key: 'tp', display: 'ТП', search: ['ТП'] },
+                    { key: 'ttCode', display: 'Код ТТ', search: ['Код ТТ'] },
+                    { key: 'ttName', display: 'Название ТТ', search: ['Название ТТ'] },
+                    { key: 'address', display: 'Адрес', search: ['Адрес'] },
+                    { key: 'ttType', display: 'Тип ТТ', search: ['Тип ТТ'] },
+                    { key: 'ttChannel', display: 'Канал ТТ', search: ['Канал ТТ', 'Канал', 'Канал<br>ТТ', 'Канал<br/>ТТ'] },
+                    { key: 'plan', display: 'План MML Кофе', search: ['План MML Кофе', 'План  MML Кофе', 'План<br>MML Кофе', 'План<br/>MML Кофе'] },
+                    { key: 'factQty', display: 'Факт MML кофе (кол-во)', search: ['Факт MML кофе (кол-во)', 'Факт MML кофе <br>(кол-во)', 'Факт MML кофе<br>(кол-во)', 'Факт MML кофе', 'кол-во'] },
+                    { key: 'factPercent', display: 'Факт MML кофе %', search: ['Факт MML кофе %', 'Факт MML кофе%', 'Факт MML кофе<br>%', 'Факт MML кофе <br>%', 'MML кофе %', 'MML кофе%'] },
+                    { key: 'completion', display: 'Выполнение MML КОФЕ', search: ['Выполнение MML КОФЕ', 'Выполнение<br>MML КОФЕ', 'Выполнение<br/>MML КОФЕ', 'Выполнение MML'] },
+                    { key: 'includeSDO', display: 'Включать в расчёт SDO', search: ['Включать в расчёт SDO'] }
+                ];
+            }
         }
 
         // URL файла данных
@@ -1695,23 +1719,24 @@
                 columnIndexCache.clear();
                 
                 // Если есть загруженные данные, обновляем отображение
-                if (currentRowData) {
-                    displayTTInfo();
-                    // Находим индекс строки для текущей категории
+                const searchCode = document.getElementById('searchInput').value.trim();
+                if (searchCode) {
+                    // Сначала находим индекс строки для текущей категории и обновляем currentRowData
                     const { headers, dataRows } = getActiveData();
                     const ttCodeIndex = findColumnIndex(['Код ТТ'], headers);
                     if (ttCodeIndex !== -1) {
-                        const searchCode = document.getElementById('searchInput').value.trim();
                         let foundRowIndex = -1;
                         for (let i = 0; i < dataRows.length; i++) {
                             const row = dataRows[i];
                             if (row[ttCodeIndex] && row[ttCodeIndex].toString().trim() === searchCode) {
                                 foundRowIndex = i;
-                                currentRowData = row;
+                                currentRowData = row; // Обновляем currentRowData для новой категории
                                 break;
                             }
                         }
                         if (foundRowIndex !== -1) {
+                            // Теперь обновляем отображение с правильными данными
+                            displayTTInfo(); // Вызываем после обновления currentRowData
                             collectSkuData(foundRowIndex);
                             applyFilter(currentFilter);
                         }
