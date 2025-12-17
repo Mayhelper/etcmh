@@ -1267,9 +1267,44 @@
         ];
         let currentMessageIndex = 0;
         let loadingMessageInterval = null;
+        
+        // Переменные для плавной анимации прогресса
+        let currentProgress = 0;
+        let targetProgress = 0;
+        let progressAnimationId = null;
 
-        // Функция обновления прогресса загрузки
-        function updateProgress(percent, text) {
+        // Функция плавного обновления прогресса
+        function smoothUpdateProgress(targetPercent) {
+            targetProgress = Math.max(targetPercent, targetProgress); // Не позволяем прогрессу уменьшаться
+            
+            // Если анимация не запущена, запускаем её
+            if (!progressAnimationId) {
+                const animate = () => {
+                    // Всегда проверяем актуальный targetProgress (он может обновиться во время анимации)
+                    if (currentProgress < targetProgress) {
+                        // Плавно увеличиваем прогресс
+                        const diff = targetProgress - currentProgress;
+                        const step = Math.max(0.3, Math.min(2, diff * 0.15)); // Шаг от 0.3% до 2%
+                        currentProgress = Math.min(targetProgress, currentProgress + step);
+                        
+                        updateProgressDirectly(currentProgress);
+                        
+                        if (currentProgress < targetProgress) {
+                            progressAnimationId = requestAnimationFrame(animate);
+                        } else {
+                            progressAnimationId = null;
+                        }
+                    } else {
+                        progressAnimationId = null;
+                    }
+                };
+                
+                animate();
+            }
+        }
+        
+        // Прямое обновление прогресса (без анимации)
+        function updateProgressDirectly(percent) {
             const progressBar = document.getElementById('progressBar');
             const progressBarPercent = document.getElementById('progressBarPercent');
             const progressBarContainer = document.getElementById('progressBarContainer');
@@ -1322,6 +1357,11 @@
                     progressBar.style.width = '0px';
                 }
             }
+        }
+        
+        // Функция обновления прогресса загрузки (с плавной анимацией)
+        function updateProgress(percent, text) {
+            smoothUpdateProgress(percent);
         }
 
         // Функция для смены сообщений загрузки
@@ -1380,6 +1420,14 @@
         // Функция загрузки файла с сервера
         async function loadFileFromServer() {
             try {
+                // Сбрасываем прогресс при начале новой загрузки
+                currentProgress = 0;
+                targetProgress = 0;
+                if (progressAnimationId) {
+                    cancelAnimationFrame(progressAnimationId);
+                    progressAnimationId = null;
+                }
+                
                 document.getElementById('loading').style.display = 'block';
                 document.getElementById('errorMessage').style.display = 'none';
                 const loadDateInfo = document.getElementById('loadDateInfo');
@@ -1391,7 +1439,7 @@
                 }
                 // Запускаем смену сообщений загрузки
                 startLoadingMessages();
-                updateProgress(0);
+                updateProgressDirectly(0);
                 
                 // Проверяем кэш - если данные загружены сегодня, используем их
                 updateProgress(10);
@@ -1463,6 +1511,17 @@
                     document.getElementById('refreshDataBtn').style.display = 'inline-block';
                     document.getElementById('loading').classList.add('completed');
                     updateProgress(100);
+                    // Ждем завершения анимации перед возвратом
+                    await new Promise(resolve => {
+                        const checkComplete = () => {
+                            if (currentProgress >= 100) {
+                                resolve();
+                            } else {
+                                setTimeout(checkComplete, 100);
+                            }
+                        };
+                        checkComplete();
+                    });
                     return;
                 }
                 
